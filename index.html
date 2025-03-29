@@ -7,6 +7,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js';
     import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js';
+    import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyBY7i4zj9-XdTrw_Ddg8GcX0QFsPXp6RrQ",
@@ -20,6 +21,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const storage = getStorage(app);
     const provider = new GoogleAuthProvider();
 
     const loginBtn = document.getElementById("login-btn");
@@ -27,6 +29,7 @@
     const userInfo = document.getElementById("user-info");
     const form = document.getElementById("wishlist-form");
     const wishlistEl = document.getElementById("wishlist");
+    const filterSelect = document.getElementById("filter-person");
 
     loginBtn.addEventListener("click", () => {
       signInWithPopup(auth, provider);
@@ -36,13 +39,17 @@
       signOut(auth);
     });
 
+    let currentUserName = "";
+
     onAuthStateChanged(auth, user => {
       if (user) {
-        userInfo.textContent = `Logged in as: ${user.displayName}`;
+        currentUserName = user.displayName;
+        userInfo.textContent = `Logged in as: ${currentUserName}`;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "block";
         form.style.display = "block";
       } else {
+        currentUserName = "";
         userInfo.textContent = "";
         loginBtn.style.display = "block";
         logoutBtn.style.display = "none";
@@ -56,23 +63,52 @@
       const item = document.getElementById("item").value;
       const description = document.getElementById("description").value;
       const link = document.getElementById("link").value;
+      const imageFile = document.getElementById("image").files[0];
+
+      let imageURL = "";
+      if (imageFile) {
+        const storageRef = ref(storage, `wishlist-images/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        imageURL = await getDownloadURL(snapshot.ref);
+      }
 
       await addDoc(collection(db, "wishlist"), {
-        person, item, description, link, timestamp: Date.now()
+        person,
+        item,
+        description,
+        link,
+        imageURL,
+        addedBy: currentUserName,
+        timestamp: Date.now()
       });
 
       form.reset();
     });
 
-    const wishlistQuery = query(collection(db, "wishlist"), orderBy("timestamp", "desc"));
-    onSnapshot(wishlistQuery, (snapshot) => {
+    const renderWishlist = (snapshot, filter = "") => {
       wishlistEl.innerHTML = "";
       snapshot.forEach(doc => {
         const data = doc.data();
+        if (filter && data.person !== filter) return;
         const li = document.createElement("li");
         li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description}<br>` +
-                       (data.link ? `<a href="${data.link}" target="_blank">View Item</a>` : "");
+                       (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
+                       (data.imageURL ? `<img src="${data.imageURL}" alt="Image" style="max-width:100%; height:auto; margin-top:10px;"><br>` : "") +
+                       `<small>Added by ${data.addedBy || "unknown"} on ${new Date(data.timestamp).toLocaleString()}</small>`;
         wishlistEl.appendChild(li);
+      });
+    };
+
+    const wishlistQuery = query(collection(db, "wishlist"), orderBy("timestamp", "desc"));
+    onSnapshot(wishlistQuery, (snapshot) => {
+      const selectedPerson = filterSelect.value;
+      renderWishlist(snapshot, selectedPerson);
+    });
+
+    filterSelect.addEventListener("change", () => {
+      onSnapshot(wishlistQuery, (snapshot) => {
+        const selectedPerson = filterSelect.value;
+        renderWishlist(snapshot, selectedPerson);
       });
     });
   </script>
@@ -84,11 +120,18 @@
       padding: 2rem;
       max-width: 600px;
       margin: auto;
+      position: relative;
     }
     h1, h2 {
       text-align: center;
     }
-    form, .auth-section {
+    .auth-section {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      text-align: right;
+    }
+    form, #filter-person {
       background-color: #ffffff;
       padding: 1rem;
       margin-bottom: 2rem;
@@ -124,15 +167,20 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
+    img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 0.5rem;
+    }
   </style>
 </head>
 <body>
   <h1>Family Wishlist</h1>
 
   <div class="auth-section">
+    <p id="user-info"></p>
     <button id="login-btn">Login with Google</button>
     <button id="logout-btn" style="display:none">Logout</button>
-    <p id="user-info"></p>
   </div>
 
   <form id="wishlist-form" style="display:none">
@@ -157,8 +205,21 @@
     <label for="link">Link (Optional)</label>
     <input type="url" id="link" placeholder="Optional Link" />
 
+    <label for="image">Image (Optional)</label>
+    <input type="file" id="image" accept="image/*" />
+
     <button type="submit">Add to Wishlist</button>
   </form>
+
+  <label for="filter-person">Filter by Person:</label>
+  <select id="filter-person">
+    <option value="">All</option>
+    <option value="Alice">Alice</option>
+    <option value="Bob">Bob</option>
+    <option value="Charlie">Charlie</option>
+    <option value="Mom">Mom</option>
+    <option value="Dad">Dad</option>
+  </select>
 
   <h2>Wishlist Items</h2>
   <ul id="wishlist"></ul>
