@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Family Wishlist</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>Family Wishlist</h1>
+
+  <form id="wishlist-form">
+    <select id="person" required>
+        <option value="" disabled selected>Select Person</option>
+        <option value="Dad">Dad</option>
+        <option value="Mom">Mom</option>
+        <option value="Ahmed">Ahmed</option>
+        <option value="Khalid">Khalid</option>
+        <option value="Malak">Malak</option>
+        <option value="Mishal">Mishal</option>
+        <option value="Meyar">Meyar</option>
+      </select>
+    <input type="text" id="item" placeholder="Item Name" required />
+    <textarea id="description" placeholder="Description" required></textarea>
+    <input type="url" id="link" placeholder="Optional Link" />
+    <button type="submit">Add to Wishlist</button>
+  </form>
+
+  <h2>Wishlist Items</h2>
+  <ul id="wishlist"></ul>
+
+  <script src="app.js"></script>
+</body>
+</html>
