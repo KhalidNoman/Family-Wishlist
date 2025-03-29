@@ -7,21 +7,19 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js';
     import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js';
-    import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js';
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBY7i4zj9-XdTrw_Ddg8GcX0QFsPXp6RrQ",
-    authDomain: "familywishlist-df2d7.firebaseapp.com",
-    projectId: "familywishlist-df2d7",
-    storageBucket: "familywishlist-df2d7.firebasestorage.app",
-    messagingSenderId: "380312351135",
-    appId: "1:380312351135:web:cb93bf3dcb55a6efba8daa"
+      apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
+      authDomain: "familywishlist-3962c.firebaseapp.com",
+      projectId: "familywishlist-3962c",
+      storageBucket: "familywishlist-3962c.firebasestorage.app",
+      messagingSenderId: "960114706966",
+      appId: "1:960114706966:web:47c4244f6542b87c5e0337"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    const storage = getStorage(app);
     const provider = new GoogleAuthProvider();
 
     const loginBtn = document.getElementById("login-btn");
@@ -43,7 +41,7 @@
 
     onAuthStateChanged(auth, user => {
       if (user) {
-        currentUserName = user.displayName;
+        currentUserName = user.email;
         userInfo.textContent = `Logged in as: ${currentUserName}`;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "block";
@@ -63,21 +61,12 @@
       const item = document.getElementById("item").value;
       const description = document.getElementById("description").value;
       const link = document.getElementById("link").value;
-      const imageFile = document.getElementById("image").files[0];
-
-      let imageURL = "";
-      if (imageFile) {
-        const storageRef = ref(storage, `wishlist-images/${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, imageFile);
-        imageURL = await getDownloadURL(snapshot.ref);
-      }
 
       await addDoc(collection(db, "wishlist"), {
         person,
         item,
         description,
         link,
-        imageURL,
         addedBy: currentUserName,
         timestamp: Date.now()
       });
@@ -93,7 +82,6 @@
         const li = document.createElement("li");
         li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description}<br>` +
                        (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
-                       (data.imageURL ? `<img src="${data.imageURL}" alt="Image" style="max-width:100%; height:auto; margin-top:10px;"><br>` : "") +
                        `<small>Added by ${data.addedBy || "unknown"} on ${new Date(data.timestamp).toLocaleString()}</small>`;
         wishlistEl.appendChild(li);
       });
@@ -167,11 +155,6 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    img {
-      max-width: 100%;
-      height: auto;
-      margin-top: 0.5rem;
-    }
   </style>
 </head>
 <body>
@@ -205,15 +188,12 @@
     <label for="link">Link (Optional)</label>
     <input type="url" id="link" placeholder="Optional Link" />
 
-    <label for="image">Image (Optional)</label>
-    <input type="file" id="image" accept="image/*" />
-
     <button type="submit">Add to Wishlist</button>
   </form>
 
   <label for="filter-person">Filter by Person:</label>
-  <select id="person" required>
-    <option value="" disabled selected>Select Person</option>
+  <select id="filter-person">
+    <option value="">All</option>
     <option value="Dad">Dad</option>
     <option value="Mom">Mom</option>
     <option value="Ahmed">Ahmed</option>
