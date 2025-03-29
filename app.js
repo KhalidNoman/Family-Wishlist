@@ -4,12 +4,12 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9
 
 // TODO: Replace this with your Firebase project config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+    apiKey: "AIzaSyBY7i4zj9-XdTrw_Ddg8GcX0QFsPXp6RrQ",
+    authDomain: "familywishlist-df2d7.firebaseapp.com",
+    projectId: "familywishlist-df2d7",
+    storageBucket: "familywishlist-df2d7.firebasestorage.app",
+    messagingSenderId: "380312351135",
+    appId: "1:380312351135:web:cb93bf3dcb55a6efba8daa"
 };
 
 const app = initializeApp(firebaseConfig);
