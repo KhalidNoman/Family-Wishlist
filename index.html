@@ -58,6 +58,7 @@
 
   if (!currentFamily || !user) return;
 
+  console.log("Adding to family:", currentFamily);
   await db.collection("families").doc(currentFamily).collection("wishlist").add({
     person,
     item,
@@ -79,6 +80,7 @@
         if (!user) return;
         firebase.firestore().collection("users").doc(user.email).get().then(userDoc => {
           const data = userDoc.data();
+        currentFamily = data?.family || null;
         currentFamily = data?.family || null;
           if (!data?.family) return;
           firebase.firestore().collection("families").doc(currentFamily).collection("wishlist")
