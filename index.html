@@ -53,7 +53,8 @@
       const db = firebase.firestore();
 let currentFamily = null;
       const userDoc = await db.collection("users").doc(user.email).get();
-      const data = userDoc.data();
+        const data = userDoc.data();
+        currentFamily = data?.family || null;
         currentFamily = data?.family || null;
       if (!currentFamily) return;
 
@@ -98,7 +99,7 @@ let currentFamily = null;
         const data = userDoc.data();
         if (!data?.family) return;
 
-        db.collection("families").doc(data.family).collection("wishlist")
+        db.collection("families").doc(currentFamily).collection("wishlist")
           .orderBy("timestamp", "desc")
           .onSnapshot(snapshot => renderWishlist(snapshot.docs, user.email));
       }
@@ -299,6 +300,8 @@ let currentFamily = null;
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+const db = firebase.firestore();
+let currentFamily = null;
 
     if (localStorage.getItem("darkmode") === "true") document.body.classList.add("dark");
 
