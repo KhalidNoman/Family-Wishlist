@@ -55,6 +55,7 @@
   const description = document.getElementById("description").value;
   const link = document.getElementById("link").value;
   const tag = document.getElementById("tag").value;
+  const wishlistForm = document.getElementById("wishlist-form");
 
   if (!currentFamily || !user) return;
 
@@ -100,6 +101,32 @@
           .orderBy("timestamp", "desc")
           .onSnapshot(snapshot => renderWishlist(snapshot.docs, user.email));
       }
+    });
+    wishlistForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const user = firebase.auth().currentUser;
+      const person = document.getElementById("person").value;
+      const item = document.getElementById("item").value;
+      const description = document.getElementById("description").value;
+      const link = document.getElementById("link").value;
+      const tag = document.getElementById("tag").value;
+
+      if (!currentFamily || !user) return;
+
+      console.log("Adding to family:", currentFamily);
+      await db.collection("families").doc(currentFamily).collection("wishlist").add({
+        person,
+        item,
+        description,
+        link,
+        tag,
+        addedBy: user.email,
+        timestamp: Date.now(),
+        claimedBy: null
+      });
+
+      wishlistForm.reset();
+      document.getElementById("person").selectedIndex = 0;
     });
   </script>
 </body>
