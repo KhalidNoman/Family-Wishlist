@@ -3,223 +3,168 @@
 <head>
   <meta charset="UTF-8" />
   <title>Family Wishlist</title>
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js';
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js';
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
-      authDomain: "familywishlist-3962c.firebaseapp.com",
-      projectId: "familywishlist-3962c",
-      storageBucket: "familywishlist-3962c.firebasestorage.app",
-      messagingSenderId: "960114706966",
-      appId: "1:960114706966:web:47c4244f6542b87c5e0337"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    const loginBtn = document.getElementById("login-btn");
-    const logoutBtn = document.getElementById("logout-btn");
-    const userInfo = document.getElementById("user-info");
-    const form = document.getElementById("wishlist-form");
-    const wishlistEl = document.getElementById("wishlist");
-    const filterSelect = document.getElementById("filter-person");
-
-    loginBtn.addEventListener("click", () => {
-      signInWithPopup(auth, provider);
-    });
-
-    logoutBtn.addEventListener("click", () => {
-      signOut(auth);
-    });
-
-    let currentUserName = "";
-
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        currentUserName = user.email;
-        userInfo.textContent = `Logged in as: ${currentUserName}`;
-        loginBtn.style.display = "none";
-        logoutBtn.style.display = "block";
-        form.style.display = "block";
-        wishlistEl.style.display = "block";
-      } else {
-        currentUserName = "";
-        userInfo.textContent = "";
-        loginBtn.style.display = "block";
-        logoutBtn.style.display = "none";
-        form.style.display = "none";
-        wishlistEl.style.display = "none";
-      }
-    });
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const person = document.getElementById("person").value;
-      const item = document.getElementById("item").value;
-      const description = document.getElementById("description").value;
-      const link = document.getElementById("link").value;
-
-      await addDoc(collection(db, "wishlist"), {
-        person,
-        item,
-        description,
-        link,
-        addedBy: currentUserName,
-        timestamp: Date.now()
-      });
-
-      form.reset();
-    });
-
-    const renderWishlist = (snapshot, filter = "") => {
-      wishlistEl.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (filter && data.person !== filter) return;
-        const li = document.createElement("li");
-        li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description}<br>` +
-                       (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
-                       `<small>Added by ${data.addedBy || "unknown"} on ${new Date(data.timestamp).toLocaleString()}</small>`;
-        wishlistEl.appendChild(li);
-      });
-    };
-
-    const wishlistQuery = query(collection(db, "wishlist"), orderBy("timestamp", "desc"));
-    onSnapshot(wishlistQuery, (snapshot) => {
-      const selectedPerson = filterSelect.value;
-      renderWishlist(snapshot, selectedPerson);
-    });
-
-    filterSelect.addEventListener("change", () => {
-      onSnapshot(wishlistQuery, (snapshot) => {
-        const selectedPerson = filterSelect.value;
-        renderWishlist(snapshot, selectedPerson);
-      });
-    });
-  </script>
-  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
+      font-family: 'Nunito', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
-      padding-top: 80px;
-      max-width: 600px;
-      margin: auto;
+      padding: 0;
+    }
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --text: #333;
+      --border: #ccc;
+      --shadow: rgba(0,0,0,0.05);
+    }
+    body.dark {
+      --bg: #121212;
+      --card: #1f1f1f;
+      --text: #eee;
+      --border: #444;
+      --shadow: rgba(255,255,255,0.05);
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 2rem;
     }
     h1, h2 {
       text-align: center;
     }
-    .auth-section {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .auth-section, #family-section, #app-content, #manage-people, #approve-requests {
+      margin-bottom: 2rem;
       padding: 1rem;
-      background-color: #ffffff;
-      border-bottom: 1px solid #ddd;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      z-index: 1000;
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px var(--shadow);
     }
-    .auth-section p {
-      margin: 0;
-      font-size: 0.9rem;
-    }
-    form, #filter-person {
-      background-color: #ffffff;
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    input, textarea, select, button {
+    input, select, textarea, button {
       display: block;
       width: 100%;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
       margin-bottom: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-sizing: border-box;
+      background: var(--card);
+      color: var(--text);
     }
     button {
-      background-color: #4CAF50;
+      background: #4CAF50;
       color: white;
       border: none;
       cursor: pointer;
+      transition: background 0.3s ease;
     }
     button:hover {
-      background-color: #45a049;
+      background: #45a049;
     }
     ul {
-      list-style-type: none;
+      list-style: none;
       padding: 0;
     }
     li {
-      background-color: #ffffff;
+      background: var(--card);
       margin-bottom: 1rem;
       padding: 1rem;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      box-shadow: 0 2px 5px var(--shadow);
+    }
+    small {
+      color: var(--text);
+      opacity: 0.8;
+    }
+    .claimed {
+      border-left: 4px solid #4CAF50;
+      padding-left: 0.75rem;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    #toggle-darkmode {
+      width: auto;
+      padding: 0.5rem 1rem;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="auth-section">
-    <p id="user-info"></p>
-    <div>
+  <div class="container">
+    <div class="top-bar">
+      <p id="user-info"></p>
+      <button id="toggle-darkmode">Toggle Dark Mode</button>
+    </div>
+    <div class="auth-section">
       <button id="login-btn">Login with Google</button>
       <button id="logout-btn" style="display:none">Logout</button>
     </div>
+
+    <div id="family-section" style="display:none">
+      <h2>Select or Create Your Family</h2>
+      <select id="family-select"></select>
+      <button id="request-access-btn">Request Access</button>
+      <button id="create-family-btn">Create Family</button>
+    </div>
+
+    <div id="app-content" style="display:none">
+      <h1>Family Wishlist</h1>
+      <input type="text" id="search" placeholder="Search wishlist...">
+
+      <form id="wishlist-form">
+        <label for="person">Person</label>
+        <select id="person" required></select>
+
+        <label for="item">Item Name</label>
+        <input type="text" id="item" placeholder="Item Name" required />
+
+        <label for="description">Description</label>
+        <textarea id="description" placeholder="Description"></textarea>
+
+        <label for="link">Link (Optional)</label>
+        <input type="url" id="link" placeholder="Optional Link" />
+
+        <label for="tag">Tag (e.g. Pending, Purchased)</label>
+        <input type="text" id="tag" placeholder="Tag" />
+
+        <button type="submit">Add to Wishlist</button>
+      </form>
+
+      <h2>Wishlist Items</h2>
+      <ul id="wishlist"></ul>
+    </div>
+
+    <div id="manage-people" style="display:none">
+      <h2>Manage People (Manager Only)</h2>
+      <input type="text" id="new-person" placeholder="Add person name" />
+      <button id="add-person-btn">Add Person</button>
+      <ul id="people-list"></ul>
+    </div>
+
+    <div id="approve-requests" style="display:none">
+      <h2>Approve Access Requests</h2>
+      <ul id="requests-list"></ul>
+    </div>
   </div>
 
-  <h1>Family Wishlist</h1>
+  <script>
+    const prefersDark = localStorage.getItem('darkmode') === 'true';
+    if (prefersDark) document.body.classList.add('dark');
 
-  <form id="wishlist-form" style="display:none">
-    <label for="person">Person</label>
-    <select id="person" required>
-      <option value="" disabled selected>Select Person</option>
-      <option value="Dad">Dad</option>
-      <option value="Mom">Mom</option>
-      <option value="Ahmed">Ahmed</option>
-      <option value="Khalid">Khalid</option>
-      <option value="Malak">Malak</option>
-      <option value="Mishal">Mishal</option>
-      <option value="Meyar">Meyar</option>
-    </select>
-
-    <label for="item">Item Name</label>
-    <input type="text" id="item" placeholder="Item Name" required />
-
-    <label for="description">Description</label>
-    <textarea id="description" placeholder="Description" required></textarea>
-
-    <label for="link">Link (Optional)</label>
-    <input type="url" id="link" placeholder="Optional Link" />
-
-    <button type="submit">Add to Wishlist</button>
-  </form>
-
-  <label for="filter-person">Filter by Person:</label>
-  <select id="filter-person">
-    <option value="">All</option>
-    <option value="Dad">Dad</option>
-    <option value="Mom">Mom</option>
-    <option value="Ahmed">Ahmed</option>
-    <option value="Khalid">Khalid</option>
-    <option value="Malak">Malak</option>
-    <option value="Mishal">Mishal</option>
-    <option value="Meyar">Meyar</option>
-  </select>
-
-  <h2>Wishlist Items</h2>
-  <ul id="wishlist"></ul>
+    document.getElementById('toggle-darkmode').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('darkmode', document.body.classList.contains('dark'));
+    });
+</script>
 </body>
 </html>
