@@ -191,6 +191,22 @@
     });
 
     logoutBtn.addEventListener("click", () => auth.signOut());
+
+    // Listen for auth state changes
+    auth.onAuthStateChanged((user) => {
+      const userInfo = document.getElementById("user-info");
+      if (user) {
+        userInfo.textContent = `Logged in as: ${user.email}`;
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "block";
+        // Optionally show app content or fetch family data here
+      } else {
+        userInfo.textContent = "";
+        loginBtn.style.display = "block";
+        logoutBtn.style.display = "none";
+        // Optionally hide app content or clear data
+      }
+    });
   </script>
 </body>
 </html>
