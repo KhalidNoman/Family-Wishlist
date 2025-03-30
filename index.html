@@ -4,7 +4,106 @@
   <meta charset="UTF-8" />
   <title>Family Wishlist</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js">    const wishlistList = document.getElementById("wishlist");
+    const searchInput = document.getElementById("search");
+
+    function renderWishlist(items, currentUser) {
+      wishlistList.innerHTML = "";
+      const query = searchInput.value.toLowerCase();
+      items.forEach(doc => {
+        const data = doc.data();
+        if (query && !data.item.toLowerCase().includes(query) && !(data.description || "").toLowerCase().includes(query)) return;
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
+                       (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
+                       (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
+                       `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
+
+        if (!data.claimedBy) {
+          const btn = document.createElement("button");
+          btn.textContent = "Claim";
+          btn.onclick = () => doc.ref.update({ claimedBy: currentUser });
+          li.appendChild(btn);
+        } else {
+          li.innerHTML += `<div><small>Claimed by ${data.claimedBy}</small></div>`;
+          if (data.claimedBy === currentUser) {
+            const unclaimBtn = document.createElement("button");
+            unclaimBtn.textContent = "Unclaim";
+            unclaimBtn.onclick = () => doc.ref.update({ claimedBy: null });
+            li.appendChild(unclaimBtn);
+
+            const tagInput = document.createElement("input");
+            tagInput.placeholder = "Update tag";
+            tagInput.value = data.tag || "";
+            const saveBtn = document.createElement("button");
+            saveBtn.textContent = "Update Tag";
+            saveBtn.onclick = () => doc.ref.update({ tag: tagInput.value });
+            li.appendChild(tagInput);
+            li.appendChild(saveBtn);
+          }
+        }
+
+        wishlistList.appendChild(li);
+      });
+    }
+
+    wishlistForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const user = firebase.auth().currentUser;
+      const db = firebase.firestore();
+      const userDoc = await db.collection("users").doc(user.email).get();
+      const data = userDoc.data();
+      if (!data?.family) return;
+
+      const person = document.getElementById("person").value;
+      const item = document.getElementById("item").value;
+      const description = document.getElementById("description").value;
+      const link = document.getElementById("link").value;
+      const tag = document.getElementById("tag").value;
+
+      await db.collection("families").doc(data.family).collection("wishlist").add({
+        person,
+        item,
+        description,
+        link,
+        tag,
+        addedBy: user.email,
+        timestamp: Date.now(),
+        claimedBy: null
+      });
+
+      wishlistForm.reset();
+      document.getElementById("person").selectedIndex = 0;
+    };
+
+    auth.onAuthStateChanged(async user => {
+      searchInput.removeEventListener("input", searchHandler);
+      function searchHandler() {
+        if (!user) return;
+        firebase.firestore().collection("users").doc(user.email).get().then(userDoc => {
+          const data = userDoc.data();
+          if (!data?.family) return;
+          firebase.firestore().collection("families").doc(data.family).collection("wishlist")
+            .orderBy("timestamp", "desc").get()
+            .then(snapshot => renderWishlist(snapshot.docs, user.email));
+        });
+      }
+      searchInput.addEventListener("input", searchHandler);
+
+      if (user) {
+        const db = firebase.firestore();
+        const userDoc = await db.collection("users").doc(user.email).get();
+        const data = userDoc.data();
+        if (!data?.family) return;
+
+        db.collection("families").doc(data.family).collection("wishlist")
+          .orderBy("timestamp", "desc")
+          .onSnapshot(snapshot => renderWishlist(snapshot.docs, user.email));
+      }
+    });
+  </script>
+</body>
+</html>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   <style>
