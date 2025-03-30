@@ -273,7 +273,49 @@
       };
     }
 
-    function loadAccessRequests(familyId) {
+    function loadPeople(userEmail, familyId, role) {
+  const personSelect = document.getElementById("person");
+  const manageSection = document.getElementById("manage-people");
+  const peopleList = document.getElementById("people-list");
+
+  const peopleRef = db.collection("families").doc(familyId).collection("people");
+  peopleRef.get().then(snapshot => {
+    personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
+    peopleList.innerHTML = "";
+    snapshot.forEach(doc => {
+      const name = doc.id;
+      personSelect.innerHTML += `<option value="${name}">${name}</option>`;
+
+      if (role === "manager") {
+        const li = document.createElement("li");
+        li.textContent = name + " ";
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Remove";
+        delBtn.onclick = () => {
+          peopleRef.doc(name).delete().then(() => loadPeople(userEmail, familyId, role));
+        };
+        li.appendChild(delBtn);
+        peopleList.appendChild(li);
+      }
+    });
+  });
+
+  if (role === "manager") {
+    manageSection.style.display = "block";
+    document.getElementById("add-person-btn").onclick = () => {
+      const name = document.getElementById("new-person").value.trim();
+      if (!name) return;
+      peopleRef.doc(name).set({ exists: true }).then(() => {
+        document.getElementById("new-person").value = "";
+        loadPeople(userEmail, familyId, role);
+      });
+    };
+  } else {
+    manageSection.style.display = "none";
+  }
+}
+
+function loadAccessRequests(familyId) {
       const list = document.getElementById("requests-list");
       const section = document.getElementById("approve-requests");
       const currentUser = firebase.auth().currentUser;
