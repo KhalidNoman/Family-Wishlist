@@ -137,7 +137,26 @@
   <div class="container">
     <div id="user-section" class="section">
       <h2>Family Wishlist</h2>
-      <form id="wishlist-form" style="display: none;"></form>
+      <form id="wishlist-form" style="display: none;">
+        <label for="person">Person</label>
+        <select id="person" required>
+          <option value="" disabled selected>Select Person</option>
+        </select>
+
+        <label for="item">Item Name</label>
+        <input type="text" id="item" placeholder="Item Name" required />
+
+        <label for="description">Description</label>
+        <textarea id="description" placeholder="Description"></textarea>
+
+        <label for="link">Link (Optional)</label>
+        <input type="url" id="link" placeholder="Optional Link" />
+
+        <label for="tag">Tag (e.g. Pending, Purchased)</label>
+        <input type="text" id="tag" placeholder="Tag" />
+
+        <button type="submit">Add to Wishlist</button>
+      </form>
       <div id="wishlist-content" style="display: none;">
         <h3>Wishlist Items</h3>
         <input type="text" id="search" placeholder="Search wishlist...">
@@ -211,6 +230,13 @@
     };
 
     auth.onAuthStateChanged(async user => {
+      const db = firebase.firestore();
+      const personSelect = document.getElementById("person");
+      const peopleList = document.getElementById("people-list");
+      const managePeopleSection = document.getElementById("manage-people");
+      const newPersonInput = document.getElementById("new-person");
+      const addPersonBtn = document.getElementById("add-person-btn");
+
       if (user) {
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline-block";
@@ -219,14 +245,57 @@
         wishlistForm.style.display = "block";
         wishlistContent.style.display = "block";
 
-        const userDoc = await firebase.firestore().collection("users").doc(user.email).get();
+        const userDoc = await db.collection("users").doc(user.email).get();
         const data = userDoc.data();
 
         if (data?.role === "manager") {
           managerTab.style.display = "inline-block";
+          managePeopleSection.style.display = "block";
         } else {
           managerTab.style.display = "none";
+          managePeopleSection.style.display = "none";
           if (managerTab.classList.contains("active")) userTab.click();
+        }
+
+        if (data?.family) {
+          const peopleRef = db.collection("families").doc(data.family).collection("people");
+          const snapshot = await peopleRef.get();
+          personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
+          peopleList.innerHTML = "";
+          snapshot.forEach(doc => {
+            const name = doc.id;
+            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
+            const li = document.createElement("li");
+            li.textContent = name;
+            if (data.role === "manager") {
+              const removeBtn = document.createElement("button");
+              removeBtn.textContent = "Remove";
+              removeBtn.onclick = async () => {
+                await peopleRef.doc(name).delete();
+                li.remove();
+              };
+              li.appendChild(removeBtn);
+            }
+            peopleList.appendChild(li);
+          });
+
+          addPersonBtn.onclick = async () => {
+            const name = newPersonInput.value.trim();
+            if (!name) return;
+            await peopleRef.doc(name).set({ exists: true });
+            newPersonInput.value = "";
+            const li = document.createElement("li");
+            li.textContent = name;
+            const removeBtn = document.createElement("button");
+            removeBtn.textContent = "Remove";
+            removeBtn.onclick = async () => {
+              await peopleRef.doc(name).delete();
+              li.remove();
+            };
+            li.appendChild(removeBtn);
+            peopleList.appendChild(li);
+            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
+          };
         }
       } else {
         userInfo.textContent = "Not logged in";
@@ -239,6 +308,9 @@
         wishlistForm.style.display = "none";
         wishlistContent.style.display = "none";
         managerTab.style.display = "none";
+        managePeopleSection.style.display = "none";
+        document.getElementById("person").innerHTML = '<option value="" disabled selected>Select Person</option>';
+        document.getElementById("people-list").innerHTML = "";
       }
     });
   </script>
