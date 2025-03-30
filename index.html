@@ -1,4 +1,3 @@
-<!-- Firebase Compatibility Version -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,23 +5,6 @@
   <title>Family Wishlist</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-  <script>
-    function loadFamilyList() {
-      const familySelect = document.getElementById("family-select");
-      firebase.firestore().collection("families").get().then(snapshot => {
-        familySelect.innerHTML = '<option value="" disabled selected>Select a family</option>';
-        snapshot.forEach(doc => {
-          if (doc.id !== '_index') {
-            familySelect.innerHTML += `<option value="${doc.id}">${doc.id}</option>`;
-          }
-        });
-      });
-    }
-  </script>
-</body>
-</html>
-</body>
-</html>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   <style>
@@ -179,7 +161,6 @@
   </div>
 
   <script>
-    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
       authDomain: "familywishlist-3962c.firebaseapp.com",
@@ -190,6 +171,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.firestore();
 
     const prefersDark = localStorage.getItem('darkmode') === 'true';
     if (prefersDark) document.body.classList.add('dark');
@@ -201,66 +183,130 @@
 
     const loginBtn = document.getElementById("login-btn");
     const logoutBtn = document.getElementById("logout-btn");
-
     loginBtn.addEventListener("click", () => {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider);
     });
-
     logoutBtn.addEventListener("click", () => auth.signOut());
 
-    // Listen for auth state changes
-    auth.onAuthStateChanged((user) => {
-      const db = firebase.firestore();
+    auth.onAuthStateChanged(user => {
       const userInfo = document.getElementById("user-info");
+      const familySection = document.getElementById("family-section");
+      const appContent = document.getElementById("app-content");
       if (user) {
         userInfo.textContent = `Logged in as: ${user.email}`;
         loginBtn.style.display = "none";
         logoutBtn.style.display = "block";
-        // Check user family info and display appropriate section
-        const db = firebase.firestore();
-        const familySection = document.getElementById("family-section");
-        const appContent = document.getElementById("app-content");
 
-        db.collection("users").doc(user.email).get().then(doc => {
-          if (doc.exists) {
-            const data = doc.data();
+        db.collection("users").doc(user.email).get().then(docSnap => {
+          if (docSnap.exists) {
+            const data = docSnap.data();
             if (data.family && data.role !== "none") {
-              // Linked to a family, show app content
               familySection.style.display = "none";
               appContent.style.display = "block";
               loadPeople(user.email, data.family, data.role);
               loadWishlist(data.family, user.email);
+              loadAccessRequests(data.family);
             } else {
-              // Not linked, show family selection
               loadFamilyList();
               setupFamilyActions(user);
               familySection.style.display = "block";
               appContent.style.display = "none";
             }
           } else {
-            // New user, add record and show family section
-            db.collection("users").doc(user.email).set({
-              family: null,
-              role: "none"
+            db.collection("users").doc(user.email).set({ family: null, role: "none" }).then(() => {
+              loadFamilyList();
+              setupFamilyActions(user);
+              familySection.style.display = "block";
+              appContent.style.display = "none";
             });
-            loadFamilyList();
-            setupFamilyActions(user);
-            db.collection("users").doc(user.email).set({
-              family: null,
-              role: "none"
-            });
-            familySection.style.display = "block";
-            appContent.style.display = "none";
           }
         });
       } else {
         userInfo.textContent = "";
         loginBtn.style.display = "block";
         logoutBtn.style.display = "none";
-        // Optionally hide app content or clear data
+        familySection.style.display = "none";
+        appContent.style.display = "none";
       }
     });
+
+    function loadFamilyList() {
+      const familySelect = document.getElementById("family-select");
+      db.collection("families").get().then(snapshot => {
+        familySelect.innerHTML = '<option value="" disabled selected>Select a family</option>';
+        snapshot.forEach(doc => {
+          if (doc.id !== '_index') {
+            familySelect.innerHTML += `<option value="${doc.id}">${doc.id}</option>`;
+          }
+        });
+      });
+    }
+
+    function setupFamilyActions(user) {
+      const requestBtn = document.getElementById("request-access-btn");
+      const createBtn = document.getElementById("create-family-btn");
+
+      requestBtn.onclick = () => {
+        const selectedFamily = document.getElementById("family-select").value;
+        if (!selectedFamily) return alert("Please select a family first.");
+        const familyRef = db.collection("families").doc(selectedFamily);
+        familyRef.update({ requests: firebase.firestore.FieldValue.arrayUnion(user.email) });
+        alert("Request sent to family manager.");
+      };
+
+      createBtn.onclick = () => {
+        const familyName = prompt("Enter a name for the new family:");
+        if (!familyName) return;
+        const familyRef = db.collection("families").doc(familyName);
+        familyRef.set({
+          manager: user.email,
+          members: [user.email],
+          requests: []
+        });
+        db.collection("users").doc(user.email).set({ family: familyName, role: "manager" });
+        document.getElementById("family-section").style.display = "none";
+        document.getElementById("app-content").style.display = "block";
+        loadPeople(user.email, familyName, "manager");
+        loadWishlist(familyName, user.email);
+        loadAccessRequests(familyName);
+      };
+    }
+
+    function loadAccessRequests(familyId) {
+      const list = document.getElementById("requests-list");
+      const section = document.getElementById("approve-requests");
+      const currentUser = firebase.auth().currentUser;
+      if (!currentUser) return;
+
+      const familyRef = db.collection("families").doc(familyId);
+      familyRef.get().then(doc => {
+        const data = doc.data();
+        if (data.manager !== currentUser.email) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "block";
+        const requests = data.requests || [];
+        list.innerHTML = "";
+        requests.forEach(email => {
+          const li = document.createElement("li");
+          li.textContent = email + " ";
+          const approveBtn = document.createElement("button");
+          approveBtn.textContent = "Approve";
+          approveBtn.onclick = () => {
+            familyRef.update({
+              requests: firebase.firestore.FieldValue.arrayRemove(email),
+              members: firebase.firestore.FieldValue.arrayUnion(email)
+            });
+            db.collection("users").doc(email).set({ family: familyId, role: "member" });
+            loadAccessRequests(familyId);
+          };
+          li.appendChild(approveBtn);
+          list.appendChild(li);
+        });
+      });
+    }
   </script>
 </body>
 </html>
