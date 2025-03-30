@@ -33,30 +33,36 @@
       background-color: var(--card);
       box-shadow: 0 2px 8px var(--shadow);
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.5rem 1rem;
+    }
+    .nav-row {
+      display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 2rem;
+      width: 100%;
       flex-wrap: wrap;
     }
-    header nav {
+    .nav-controls, .auth-controls {
       display: flex;
+      align-items: center;
       gap: 0.5rem;
-      flex-wrap: wrap;
     }
-    header nav button {
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    nav button {
       background: none;
       border: none;
       color: var(--text);
       font-weight: bold;
       cursor: pointer;
     }
-    header nav button.active {
+    nav button.active {
       text-decoration: underline;
-    }
-    .container {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 1rem;
     }
     .section {
       display: none;
@@ -106,61 +112,37 @@
       opacity: 0.8;
     }
     @media (max-width: 600px) {
-      header nav {
-        justify-content: center;
-        width: 100%;
-        margin-top: 0.5rem;
+      .nav-row {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <strong id="user-info">Not logged in</strong>
+    <div class="nav-row">
+      <div class="nav-controls">
+        <button id="tab-user" class="active">Wishlist</button>
+        <button id="tab-manager" style="display: none">Manage</button>
+        <button id="toggle-darkmode">Dark Mode</button>
+      </div>
+      <div class="auth-controls">
+        <span id="user-info">Not logged in</span>
+        <button id="login-btn">Login</button>
+        <button id="logout-btn" style="display:none">Logout</button>
+      </div>
     </div>
-    <nav>
-      <button id="tab-user" class="active">Wishlist</button>
-      <button id="tab-manager" style="display: none">Manage</button>
-      <button id="toggle-darkmode">Dark Mode</button>
-      <button id="login-btn">Login</button>
-      <button id="logout-btn" style="display:none">Logout</button>
-    </nav>
   </header>
   <div class="container">
-    <div id="user-section" class="section active">
+    <div id="user-section" class="section">
       <h2>Family Wishlist</h2>
-      <form id="wishlist-form">
-        <label for="person">Person</label>
-        <select id="person" required>
-          <option value="" disabled selected>Select Person</option>
-          <option value="Dad">Dad</option>
-          <option value="Mom">Mom</option>
-          <option value="Ahmed">Ahmed</option>
-          <option value="Khalid">Khalid</option>
-          <option value="Malak">Malak</option>
-          <option value="Mishal">Mishal</option>
-          <option value="Meyar">Meyar</option>
-        </select>
-
-        <label for="item">Item Name</label>
-        <input type="text" id="item" placeholder="Item Name" required />
-
-        <label for="description">Description</label>
-        <textarea id="description" placeholder="Description"></textarea>
-
-        <label for="link">Link (Optional)</label>
-        <input type="url" id="link" placeholder="Optional Link" />
-
-        <label for="tag">Tag (e.g. Pending, Purchased)</label>
-        <input type="text" id="tag" placeholder="Tag" />
-
-        <button type="submit">Add to Wishlist</button>
-      </form>
-
-      <h3>Wishlist Items</h3>
-      <input type="text" id="search" placeholder="Search wishlist...">
-      <ul id="wishlist"></ul>
+      <form id="wishlist-form" style="display: none;"></form>
+      <div id="wishlist-content" style="display: none;">
+        <h3>Wishlist Items</h3>
+        <input type="text" id="search" placeholder="Search wishlist...">
+        <ul id="wishlist"></ul>
+      </div>
     </div>
     <div id="manager-section" class="section">
       <h2>Manager Panel</h2>
@@ -184,6 +166,8 @@
     const loginBtn = document.getElementById("login-btn");
     const logoutBtn = document.getElementById("logout-btn");
     const userInfo = document.getElementById("user-info");
+    const wishlistForm = document.getElementById("wishlist-form");
+    const wishlistContent = document.getElementById("wishlist-content");
 
     const firebaseConfig = {
       apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
@@ -231,6 +215,9 @@
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline-block";
         userInfo.textContent = `Logged in as: ${user.email}`;
+        document.getElementById("user-section").classList.add("active");
+        wishlistForm.style.display = "block";
+        wishlistContent.style.display = "block";
 
         const userDoc = await firebase.firestore().collection("users").doc(user.email).get();
         const data = userDoc.data();
@@ -241,16 +228,16 @@
           managerTab.style.display = "none";
           if (managerTab.classList.contains("active")) userTab.click();
         }
-
-        userSection.classList.add("active");
       } else {
         userInfo.textContent = "Not logged in";
         loginBtn.style.display = "inline-block";
         logoutBtn.style.display = "none";
         userTab.classList.add("active");
         managerTab.classList.remove("active");
-        userSection.classList.add("active");
+        userSection.classList.remove("active");
         managerSection.classList.remove("active");
+        wishlistForm.style.display = "none";
+        wishlistContent.style.display = "none";
         managerTab.style.display = "none";
       }
     });
