@@ -51,9 +51,11 @@
       e.preventDefault();
       const user = firebase.auth().currentUser;
       const db = firebase.firestore();
+let currentFamily = null;
       const userDoc = await db.collection("users").doc(user.email).get();
       const data = userDoc.data();
-      if (!data?.family) return;
+        currentFamily = data?.family || null;
+      if (!currentFamily) return;
 
       const person = document.getElementById("person").value;
       const item = document.getElementById("item").value;
@@ -61,7 +63,7 @@
       const link = document.getElementById("link").value;
       const tag = document.getElementById("tag").value;
 
-      await db.collection("families").doc(data.family).collection("wishlist").add({
+      await db.collection("families").doc(currentFamily).collection("wishlist").add({
         person,
         item,
         description,
@@ -83,7 +85,7 @@
         firebase.firestore().collection("users").doc(user.email).get().then(userDoc => {
           const data = userDoc.data();
           if (!data?.family) return;
-          firebase.firestore().collection("families").doc(data.family).collection("wishlist")
+          firebase.firestore().collection("families").doc(currentFamily).collection("wishlist")
             .orderBy("timestamp", "desc").get()
             .then(snapshot => renderWishlist(snapshot.docs, user.email));
         });
