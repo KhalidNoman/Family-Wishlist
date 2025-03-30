@@ -1,9 +1,13 @@
+<!-- Firebase Compatibility Version -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
   <title>Family Wishlist</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   <style>
     body {
       font-family: 'Nunito', sans-serif;
@@ -157,40 +161,36 @@
     </div>
   </div>
 
-  <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js';
-  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, arrayUnion, arrayRemove } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js';
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js';
+  <script>
+    // Firebase init
+    const firebaseConfig = {
+      apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
+      authDomain: "familywishlist-3962c.firebaseapp.com",
+      projectId: "familywishlist-3962c",
+      storageBucket: "familywishlist-3962c.firebasestorage.app",
+      messagingSenderId: "960114706966",
+      appId: "1:960114706966:web:47c4244f6542b87c5e0337"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
 
-  // Firebase Config
-  const firebaseConfig = {
-    apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
-    authDomain: "familywishlist-3962c.firebaseapp.com",
-    projectId: "familywishlist-3962c",
-    storageBucket: "familywishlist-3962c.firebasestorage.app",
-    messagingSenderId: "960114706966",
-    appId: "1:960114706966:web:47c4244f6542b87c5e0337"
-  };
+    const prefersDark = localStorage.getItem('darkmode') === 'true';
+    if (prefersDark) document.body.classList.add('dark');
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
+    document.getElementById('toggle-darkmode').addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('darkmode', document.body.classList.contains('dark'));
+    });
 
-  // Dark mode preference
-  const prefersDark = localStorage.getItem('darkmode') === 'true';
-  if (prefersDark) document.body.classList.add('dark');
+    const loginBtn = document.getElementById("login-btn");
+    const logoutBtn = document.getElementById("logout-btn");
 
-  document.getElementById('toggle-darkmode').addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    localStorage.setItem('darkmode', document.body.classList.contains('dark'));
-  });
+    loginBtn.addEventListener("click", () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider);
+    });
 
-  const loginBtn = document.getElementById("login-btn");
-  const logoutBtn = document.getElementById("logout-btn");
-
-  loginBtn.addEventListener("click", () => signInWithPopup(auth, provider));
-  logoutBtn.addEventListener("click", () => signOut(auth));
-</script>
+    logoutBtn.addEventListener("click", () => auth.signOut());
+  </script>
 </body>
 </html>
