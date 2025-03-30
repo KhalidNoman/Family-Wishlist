@@ -4,107 +4,7 @@
   <meta charset="UTF-8" />
   <title>Family Wishlist</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js">    const wishlistList = document.getElementById("wishlist");
-    const searchInput = document.getElementById("search");
-
-    function renderWishlist(items, currentUser) {
-      wishlistList.innerHTML = "";
-      const query = searchInput.value.toLowerCase();
-      items.forEach(doc => {
-        const data = doc.data();
-        if (query && !data.item.toLowerCase().includes(query) && !(data.description || "").toLowerCase().includes(query)) return;
-        const li = document.createElement("li");
-        li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
-                       (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
-                       (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
-                       `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
-
-        if (!data.claimedBy) {
-          const btn = document.createElement("button");
-          btn.textContent = "Claim";
-          btn.onclick = () => doc.ref.update({ claimedBy: currentUser });
-          li.appendChild(btn);
-        } else {
-          li.innerHTML += `<div><small>Claimed by ${data.claimedBy}</small></div>`;
-          if (data.claimedBy === currentUser) {
-            const unclaimBtn = document.createElement("button");
-            unclaimBtn.textContent = "Unclaim";
-            unclaimBtn.onclick = () => doc.ref.update({ claimedBy: null });
-            li.appendChild(unclaimBtn);
-
-            const tagInput = document.createElement("input");
-            tagInput.placeholder = "Update tag";
-            tagInput.value = data.tag || "";
-            const saveBtn = document.createElement("button");
-            saveBtn.textContent = "Update Tag";
-            saveBtn.onclick = () => doc.ref.update({ tag: tagInput.value });
-            li.appendChild(tagInput);
-            li.appendChild(saveBtn);
-          }
-        }
-
-        wishlistList.appendChild(li);
-      });
-    }
-
-    
-    auth.onAuthStateChanged(async user => {
-      searchInput.removeEventListener("input", searchHandler);
-      function searchHandler() {
-        if (!user) return;
-        firebase.firestore().collection("users").doc(user.email).get().then(userDoc => {
-          const data = userDoc.data();
-        currentFamily = data?.family || null;
-        currentFamily = data?.family || null;
-          if (!data?.family) return;
-          firebase.firestore().collection("families").doc(currentFamily).collection("wishlist")
-            .orderBy("timestamp", "desc").get()
-            .then(snapshot => renderWishlist(snapshot.docs, user.email));
-        });
-      }
-      searchInput.addEventListener("input", searchHandler);
-
-      if (user) {
-        const db = firebase.firestore();
-        const userDoc = await db.collection("users").doc(user.email).get();
-        const data = userDoc.data();
-        if (!data?.family) return;
-
-        db.collection("families").doc(currentFamily).collection("wishlist")
-          .orderBy("timestamp", "desc")
-          .onSnapshot(snapshot => renderWishlist(snapshot.docs, user.email));
-      }
-    });
-      const wishlistForm = document.getElementById("wishlist-form");
-    wishlistForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const user = firebase.auth().currentUser;
-      const person = document.getElementById("person").value;
-      const item = document.getElementById("item").value;
-      const description = document.getElementById("description").value;
-      const link = document.getElementById("link").value;
-      const tag = document.getElementById("tag").value;
-
-      if (!currentFamily || !user) return;
-
-      console.log("Adding to family:", currentFamily);
-      await db.collection("families").doc(currentFamily).collection("wishlist").add({
-        person,
-        item,
-        description,
-        link,
-        tag,
-        addedBy: user.email,
-        timestamp: Date.now(),
-        claimedBy: null
-      });
-
-      wishlistForm.reset();
-      document.getElementById("person").selectedIndex = 0;
-    });
-  </script>
-</body>
-</html>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
   <style>
@@ -235,26 +135,19 @@
     </div>
   </header>
   <div class="container">
-    <div id="user-section" class="section">
+    <div id="user-section" class="section active">
       <h2>Family Wishlist</h2>
       <form id="wishlist-form" style="display: none;">
         <label for="person">Person</label>
-        <select id="person" required>
-          <option value="" disabled selected>Select Person</option>
-        </select>
-
+        <select id="person" required><option value="" disabled selected>Select Person</option></select>
         <label for="item">Item Name</label>
-        <input type="text" id="item" placeholder="Item Name" required />
-
+        <input type="text" id="item" required>
         <label for="description">Description</label>
-        <textarea id="description" placeholder="Description"></textarea>
-
-        <label for="link">Link (Optional)</label>
-        <input type="url" id="link" placeholder="Optional Link" />
-
-        <label for="tag">Tag (e.g. Pending, Purchased)</label>
-        <input type="text" id="tag" placeholder="Tag" />
-
+        <textarea id="description"></textarea>
+        <label for="link">Link (optional)</label>
+        <input type="url" id="link">
+        <label for="tag">Tag</label>
+        <input type="text" id="tag">
         <button type="submit">Add to Wishlist</button>
       </form>
       <div id="wishlist-content" style="display: none;">
@@ -267,7 +160,7 @@
       <h2>Manager Panel</h2>
       <div id="manage-people">
         <h3>Manage People</h3>
-        <input type="text" id="new-person" placeholder="Add person name" />
+        <input type="text" id="new-person" placeholder="Add person name">
         <button id="add-person-btn">Add Person</button>
         <ul id="people-list"></ul>
       </div>
@@ -278,15 +171,6 @@
     </div>
   </div>
   <script>
-    const userTab = document.getElementById("tab-user");
-    const managerTab = document.getElementById("tab-manager");
-    const userSection = document.getElementById("user-section");
-    const managerSection = document.getElementById("manager-section");
-    const loginBtn = document.getElementById("login-btn");
-    const logoutBtn = document.getElementById("logout-btn");
-    const userInfo = document.getElementById("user-info");
-    const wishlistContent = document.getElementById("wishlist-content");
-
     const firebaseConfig = {
       apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
       authDomain: "familywishlist-3962c.firebaseapp.com",
@@ -297,11 +181,20 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-const db = firebase.firestore();
-let currentFamily = null;
+    const db = firebase.firestore();
+
+    let currentFamily = null;
+    const userTab = document.getElementById("tab-user");
+    const managerTab = document.getElementById("tab-manager");
+    const userSection = document.getElementById("user-section");
+    const managerSection = document.getElementById("manager-section");
+    const loginBtn = document.getElementById("login-btn");
+    const logoutBtn = document.getElementById("logout-btn");
+    const userInfo = document.getElementById("user-info");
+    const wishlistForm = document.getElementById("wishlist-form");
+    const wishlistContent = document.getElementById("wishlist-content");
 
     if (localStorage.getItem("darkmode") === "true") document.body.classList.add("dark");
-
     document.getElementById("toggle-darkmode").onclick = () => {
       document.body.classList.toggle("dark");
       localStorage.setItem("darkmode", document.body.classList.contains("dark"));
@@ -313,41 +206,40 @@ let currentFamily = null;
       userSection.classList.add("active");
       managerSection.classList.remove("active");
     };
-
     managerTab.onclick = () => {
       managerTab.classList.add("active");
       userTab.classList.remove("active");
       managerSection.classList.add("active");
       userSection.classList.remove("active");
     };
-
     loginBtn.onclick = () => {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider);
     };
-
     logoutBtn.onclick = () => {
       auth.signOut();
     };
 
     auth.onAuthStateChanged(async user => {
-      const db = firebase.firestore();
       const personSelect = document.getElementById("person");
       const peopleList = document.getElementById("people-list");
       const managePeopleSection = document.getElementById("manage-people");
       const newPersonInput = document.getElementById("new-person");
       const addPersonBtn = document.getElementById("add-person-btn");
+      const searchInput = document.getElementById("search");
+      const wishlistList = document.getElementById("wishlist");
 
       if (user) {
         loginBtn.style.display = "none";
         logoutBtn.style.display = "inline-block";
         userInfo.textContent = `Logged in as: ${user.email}`;
-        document.getElementById("user-section").classList.add("active");
+        userSection.classList.add("active");
         wishlistForm.style.display = "block";
         wishlistContent.style.display = "block";
 
         const userDoc = await db.collection("users").doc(user.email).get();
         const data = userDoc.data();
+        currentFamily = data?.family || null;
 
         if (data?.role === "manager") {
           managerTab.style.display = "inline-block";
@@ -358,8 +250,8 @@ let currentFamily = null;
           if (managerTab.classList.contains("active")) userTab.click();
         }
 
-        if (data?.family) {
-          const peopleRef = db.collection("families").doc(data.family).collection("people");
+        if (currentFamily) {
+          const peopleRef = db.collection("families").doc(currentFamily).collection("people");
           const snapshot = await peopleRef.get();
           personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
           peopleList.innerHTML = "";
@@ -385,6 +277,7 @@ let currentFamily = null;
             if (!name) return;
             await peopleRef.doc(name).set({ exists: true });
             newPersonInput.value = "";
+            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
             const li = document.createElement("li");
             li.textContent = name;
             const removeBtn = document.createElement("button");
@@ -395,9 +288,46 @@ let currentFamily = null;
             };
             li.appendChild(removeBtn);
             peopleList.appendChild(li);
-            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
           };
+
+          db.collection("families").doc(currentFamily).collection("wishlist")
+            .orderBy("timestamp", "desc")
+            .onSnapshot(snapshot => {
+              wishlistList.innerHTML = "";
+              snapshot.forEach(doc => {
+                const data = doc.data();
+                const li = document.createElement("li");
+                li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
+                  (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
+                  (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
+                  `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
+                wishlistList.appendChild(li);
+              });
+            });
         }
+
+        wishlistForm.addEventListener("submit", async e => {
+          e.preventDefault();
+          const person = document.getElementById("person").value;
+          const item = document.getElementById("item").value;
+          const description = document.getElementById("description").value;
+          const link = document.getElementById("link").value;
+          const tag = document.getElementById("tag").value;
+          if (!currentFamily) return;
+          await db.collection("families").doc(currentFamily).collection("wishlist").add({
+            person,
+            item,
+            description,
+            link,
+            tag,
+            addedBy: user.email,
+            timestamp: Date.now(),
+            claimedBy: null
+          });
+          wishlistForm.reset();
+          personSelect.selectedIndex = 0;
+        });
+
       } else {
         userInfo.textContent = "Not logged in";
         loginBtn.style.display = "inline-block";
@@ -410,8 +340,9 @@ let currentFamily = null;
         wishlistContent.style.display = "none";
         managerTab.style.display = "none";
         managePeopleSection.style.display = "none";
-        document.getElementById("person").innerHTML = '<option value="" disabled selected>Select Person</option>';
-        document.getElementById("people-list").innerHTML = "";
+        personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
+        peopleList.innerHTML = "";
+        wishlistList.innerHTML = "";
       }
     });
   </script>
