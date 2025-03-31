@@ -135,6 +135,16 @@
     </div>
   </header>
   <div class="container">
+    <div id="access-request-section" class="section">
+      <h2>Join a Family</h2>
+      <label for="family-select">Select a Family</label>
+      <select id="family-select">
+        <option value="" disabled selected>Select Family</option>
+      </select>
+      <label for="new-family">Or Enter a New Family Name</label>
+      <input type="text" id="new-family" placeholder="Enter family name">
+      <button id="request-access-btn">Request Access</button>
+    </div>
     <div id="user-section" class="section active">
       <h2>Family Wishlist</h2>
       <form id="wishlist-form" style="display: none;">
@@ -221,6 +231,69 @@
     };
 
     auth.onAuthStateChanged(async user => {
+      const familySelect = document.getElementById("family-select");
+      const newFamilyInput = document.getElementById("new-family");
+      const requestAccessBtn = document.getElementById("request-access-btn");
+      const accessRequestSection = document.getElementById("access-request-section");
+
+      const familyList = await db.collection("families").get();
+      const existingFamilies = familyList.docs.map(doc => doc.id);
+      familySelect.innerHTML = '<option value="" disabled selected>Select Family</option>';
+      existingFamilies.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        familySelect.appendChild(option);
+      });
+      const userRef = db.collection("users").doc(user.email);
+      const userSnap = await userRef.get();
+      if (user) {
+        accessRequestSection.style.display = "block";
+
+        if (!userSnap.exists) {
+          await userRef.set({ role: "none", family: null });
+        }
+
+        requestAccessBtn.onclick = async () => {
+          const selectedFamily = familySelect.value;
+          const newFamily = newFamilyInput.value.trim();
+          const familyName = newFamily || selectedFamily;
+          if (!familyName) return alert("Please select or enter a family name.");
+
+          const familyRef = db.collection("families").doc(familyName);
+          const familyDoc = await familyRef.get();
+
+          if (!familyDoc.exists) {
+            await familyRef.set({ manager: user.email, requests: [], members: [user.email] });
+            await db.collection("users").doc(user.email).set({ role: "manager", family: familyName });
+            alert("New family created and you are the manager.");
+          } else {
+            await familyRef.update({
+              requests: firebase.firestore.FieldValue.arrayUnion(user.email)
+            });
+            alert("Access request sent to family manager.");
+          }
+          location.reload();
+        };
+
+
+        if (!userSnap.exists) {
+          await userRef.set({ role: "none", family: null });
+        }
+
+        const requestFamily = prompt("Enter the name of your family to request access:");
+        if (requestFamily && existingFamilies.includes(requestFamily)) {
+          const familyRef = db.collection("families").doc(requestFamily);
+          await familyRef.update({
+            requests: firebase.firestore.FieldValue.arrayUnion(user.email)
+          });
+          alert("Access request sent to family manager.");
+        } else if (requestFamily) {
+          alert("Family not found.");
+        }
+      }
+
+      // continue with existing user logic below
       const personSelect = document.getElementById("person");
       const peopleList = document.getElementById("people-list");
       const managePeopleSection = document.getElementById("manage-people");
@@ -295,12 +368,46 @@
             .onSnapshot(snapshot => {
               wishlistList.innerHTML = "";
               snapshot.forEach(doc => {
-                const data = doc.data();
-                const li = document.createElement("li");
-                li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
+              const data = doc.data();
+              const li = document.createElement("li");
+              const isClaimed = data.claimedBy !== null;
+              li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
                   (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
                   (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
                   `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
+
+                if (!isClaimed) {
+                  const claimBtn = document.createElement("button");
+                  claimBtn.textContent = "Claim";
+                  claimBtn.onclick = () => {
+                    doc.ref.update({ claimedBy: user.email });
+                  };
+                  li.appendChild(claimBtn);
+                } else {
+                  li.innerHTML += `<br><small>Claimed by ${data.claimedBy}</small>`;
+                  if (data.claimedBy === user.email) {
+                    const unclaimBtn = document.createElement("button");
+                    unclaimBtn.textContent = "Unclaim";
+                    unclaimBtn.onclick = () => {
+                      doc.ref.update({ claimedBy: null });
+                    };
+                    li.appendChild(unclaimBtn);
+
+                    const tagInput = document.createElement("input");
+                    tagInput.type = "text";
+                    tagInput.placeholder = "Update tag";
+                    tagInput.value = data.tag || "";
+
+                    const saveBtn = document.createElement("button");
+                    saveBtn.textContent = "Update Tag";
+                    saveBtn.onclick = () => {
+                      doc.ref.update({ tag: tagInput.value });
+                    };
+
+                    li.appendChild(tagInput);
+                    li.appendChild(saveBtn);
+                  }
+                }
                 wishlistList.appendChild(li);
               });
             });
