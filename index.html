@@ -226,6 +226,12 @@
       localStorage.setItem("darkmode", document.body.classList.contains("dark"));
     };
 
+      // Manager visibility and load
+      if (data.role === "manager") {
+        managerTab.style.display = "inline-block";
+        managePeopleSection.style.display = "block";
+        managerTab.click();
+      }
     // Tab switching
     userTab.onclick = () => {
       userTab.classList.add("active");
@@ -267,20 +273,32 @@
       }
 
       // Setup family switching
-      if (data.families && data.families.length > 0) {
-        jumpSelect.style.display = "inline-block";
-        jumpSelect.innerHTML = '<option disabled selected>Switch Family</option>';
-        data.families.forEach(fam => {
-          const opt = document.createElement("option");
-          opt.value = fam;
-          opt.textContent = fam;
-          jumpSelect.appendChild(opt);
-        });
-        jumpSelect.onchange = async () => {
-          await userDocRef.update({ family: jumpSelect.value });
-          location.reload();
-        };
-      }
+      const familyDocs = await db.collection("families").get();
+      jumpSelect.style.display = "inline-block";
+      jumpSelect.innerHTML = '<option disabled selected>Switch or Request Family</option>';
+      familyDocs.forEach(doc => {
+        const fam = doc.id;
+        const opt = document.createElement("option");
+        opt.value = fam;
+        opt.textContent = data.families.includes(fam) ? `${fam}${fam === data.family ? " (current)" : ""}` : `${fam} (request access)`;
+        if (fam === data.family) opt.selected = true;
+        jumpSelect.appendChild(opt);
+      });
+      jumpSelect.onchange = async () => {
+        const selected = jumpSelect.value;
+        if (!data.families.includes(selected)) {
+          const confirmRequest = confirm(`You don't have access to "${selected}". Would you like to request access?`);
+          if (confirmRequest) {
+            await db.collection("families").doc(selected).update({
+              requests: firebase.firestore.FieldValue.arrayUnion(user.email)
+            });
+            alert("Access request sent to the family manager.");
+          }
+          return;
+        }
+        await userDocRef.update({ family: selected });
+        location.reload();
+      };
 
       const currentFamily = data.family;
       if (!currentFamily) {
@@ -316,13 +334,7 @@
           location.reload();
         };
         return;
-      } else {
-        accessRequestSection.style.display = "none";
-        userSection.classList.add("active");
-        wishlistForm.style.display = "block";
-        wishlistContent.style.display = "block";
-      }
-      
+      } // closing bracket for if (!currentFamily)
 
       // Form submission handler
       wishlistForm.addEventListener("submit", async e => {
@@ -456,12 +468,6 @@
         }
       }
 
-      // Manager visibility and load
-      if (data.role === "manager") {
-        managerTab.style.display = "inline-block";
-        managePeopleSection.style.display = "block";
-        managerTab.click();
-      }
     });
   </script>
 </body>
