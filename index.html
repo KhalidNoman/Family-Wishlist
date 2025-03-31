@@ -274,11 +274,9 @@
         option.textContent = name;
         familySelect.appendChild(option);
       });
-      let userRef = db.collection("users").doc(user.email);
-      let userSnap = await userRef.get();
+
       if (user) {
-        userRef = db.collection("users").doc(user.email);
-        userSnap = await userRef.get();
+        // Removed duplicate userRef and userSnap declarations
 
         if (!userSnap.exists) {
           await userRef.set({ role: "none", family: null });
@@ -292,8 +290,8 @@
         } else {
           accessRequestSection.style.display = "none";
         }
-        userRef = db.collection("users").doc(user.email);
-        userSnap = await userRef.get();
+        let userRef = db.collection("users").doc(user.email);
+        let userSnap = await userRef.get();
         
 
         requestAccessBtn.onclick = async () => {
