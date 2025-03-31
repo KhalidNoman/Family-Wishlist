@@ -261,23 +261,8 @@
       let userDocSnap = await userDocRef.get();
       let data = userDocSnap.data();
       if (!Array.isArray(data?.families)) data.families = [];
-      const currentFamily = data.family;
-      // Manager visibility and load
-      const famDoc = await db.collection("families").doc(currentFamily).get();
-      const famData = famDoc.data();
-      
-      if (famData?.manager === user.email) {
-        managerTab.style.display = "inline-block";
-        managePeopleSection.style.display = "block";
-        managerTab.click();
-      }
-      // If user not initialized
-      if (!data) {
-        await userDocRef.set({ role: "none", family: null, families: [] });
-        data = { role: "none", family: null, families: [] };
-      }
 
-      // Setup family switching
+      // Setup family switcher early so it's always visible
       const familyDocs = await db.collection("families").get();
       jumpSelect.style.display = "inline-block";
       jumpSelect.innerHTML = '<option disabled selected>Switch or Request Family</option>';
@@ -297,15 +282,14 @@
         } else {
           opt.textContent = `${fam} (request access)`;
         }
-        if (fam === data.family) opt.selected = true;
         jumpSelect.appendChild(opt);
       });
+
       jumpSelect.onchange = async () => {
         const selected = jumpSelect.value;
         if (selected === "__create_new_family__") {
           const newFam = prompt("Enter new family name:").trim();
           if (!newFam) return;
-
           const existing = await db.collection("families").doc(newFam).get();
           if (existing.exists) return alert("That family already exists.");
 
@@ -331,6 +315,23 @@
           location.reload();
         }
       };
+      const currentFamily = data.family;
+      // Manager visibility and load
+      const famDoc = await db.collection("families").doc(currentFamily).get();
+      const famData = famDoc.data();
+      
+      if (famData?.manager === user.email) {
+        managerTab.style.display = "inline-block";
+        managePeopleSection.style.display = "block";
+        managerTab.click();
+      }
+      // If user not initialized
+      if (!data) {
+        await userDocRef.set({ role: "none", family: null, families: [] });
+        data = { role: "none", family: null, families: [] };
+      }
+
+      
 
       jumpSelect.style.display = "inline-block";
       if (!currentFamily) {
