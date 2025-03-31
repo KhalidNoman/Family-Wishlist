@@ -318,7 +318,11 @@
         return;
       } else {
         accessRequestSection.style.display = "none";
+        userSection.classList.add("active");
+        wishlistForm.style.display = "block";
+        wishlistContent.style.display = "block";
       }
+      
 
       // Form submission handler
       wishlistForm.addEventListener("submit", async e => {
