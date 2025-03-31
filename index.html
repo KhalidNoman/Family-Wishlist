@@ -332,6 +332,7 @@
         }
       };
 
+      jumpSelect.style.display = "inline-block";
       if (!currentFamily) {
         accessRequestSection.style.display = "block";
         const familyList = await db.collection("families").get();
