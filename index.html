@@ -218,7 +218,7 @@
     const addPersonBtn = document.getElementById("add-person-btn");
     const searchInput = document.getElementById("search");
     const wishlistList = document.getElementById("wishlist");
-    console.log(data)
+
     // Theme toggle
     if (localStorage.getItem("darkmode") === "true") document.body.classList.add("dark");
     document.getElementById("toggle-darkmode").onclick = () => {
@@ -226,12 +226,7 @@
       localStorage.setItem("darkmode", document.body.classList.contains("dark"));
     };
 
-      // Manager visibility and load
-      if (data.role === "manager") {
-        managerTab.style.display = "inline-block";
-        managePeopleSection.style.display = "block";
-        managerTab.click();
-      }
+
     // Tab switching
     userTab.onclick = () => {
       userTab.classList.add("active");
@@ -265,7 +260,17 @@
       const userDocRef = db.collection("users").doc(user.email);
       let userDocSnap = await userDocRef.get();
       let data = userDocSnap.data();
-
+      if (!Array.isArray(data?.families)) data.families = [];
+      const currentFamily = data.family;
+      // Manager visibility and load
+      const famDoc = await db.collection("families").doc(currentFamily).get();
+      const famData = famDoc.data();
+      
+      if (famData?.manager === user.email) {
+        managerTab.style.display = "inline-block";
+        managePeopleSection.style.display = "block";
+        managerTab.click();
+      }
       // If user not initialized
       if (!data) {
         await userDocRef.set({ role: "none", family: null, families: [] });
@@ -276,17 +281,43 @@
       const familyDocs = await db.collection("families").get();
       jumpSelect.style.display = "inline-block";
       jumpSelect.innerHTML = '<option disabled selected>Switch or Request Family</option>';
+      const newOpt = document.createElement("option");
+      newOpt.value = "__create_new_family__";
+      newOpt.textContent = "➕ Create New Family";
+      jumpSelect.appendChild(newOpt);
       familyDocs.forEach(doc => {
         const fam = doc.id;
         const opt = document.createElement("option");
         opt.value = fam;
-        opt.textContent = data.families.includes(fam) ? `${fam}${fam === data.family ? " (current)" : ""}` : `${fam} (request access)`;
+        if (fam === data.family) {
+          opt.textContent = `${fam} (current)`;
+          opt.selected = true;
+        } else if (data.families.includes(fam)) {
+          opt.textContent = fam;
+        } else {
+          opt.textContent = `${fam} (request access)`;
+        }
         if (fam === data.family) opt.selected = true;
         jumpSelect.appendChild(opt);
       });
       jumpSelect.onchange = async () => {
         const selected = jumpSelect.value;
-        if (!data.families.includes(selected)) {
+        if (selected === "__create_new_family__") {
+          const newFam = prompt("Enter new family name:").trim();
+          if (!newFam) return;
+
+          const existing = await db.collection("families").doc(newFam).get();
+          if (existing.exists) return alert("That family already exists.");
+
+          await db.collection("families").doc(newFam).set({
+            manager: user.email,
+            members: [user.email],
+            requests: []
+          });
+          await userDocRef.update({ family: newFam, families: [...data.families, newFam] });
+          alert("New family created and set as active.");
+          location.reload();
+        } else if (!data.families.includes(selected)) {
           const confirmRequest = confirm(`You don't have access to "${selected}". Would you like to request access?`);
           if (confirmRequest) {
             await db.collection("families").doc(selected).update({
@@ -295,12 +326,12 @@
             alert("Access request sent to the family manager.");
           }
           return;
+        } else {
+          await userDocRef.update({ family: selected });
+          location.reload();
         }
-        await userDocRef.update({ family: selected });
-        location.reload();
       };
 
-      const currentFamily = data.family;
       if (!currentFamily) {
         accessRequestSection.style.display = "block";
         const familyList = await db.collection("families").get();
@@ -335,6 +366,11 @@
         };
         return;
       } // closing bracket for if (!currentFamily)
+
+      // Show wishlist section
+      userSection.classList.add("active");
+      wishlistForm.style.display = "block";
+      wishlistContent.style.display = "block";
 
       // Form submission handler
       wishlistForm.addEventListener("submit", async e => {
@@ -405,13 +441,17 @@
 
       // Load and render people
       const peopleRef = db.collection("families").doc(currentFamily).collection("people");
-      peopleRef.onSnapshot(snapshot => {
+      peopleRef.onSnapshot(async snapshot => {
         personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
         peopleList.innerHTML = "";
         if (snapshot.empty) {
           peopleList.innerHTML = '<li><em>No people added yet</em></li>';
           return;
         }
+
+        const famDoc = await db.collection("families").doc(currentFamily).get();
+        const famData = famDoc.data();
+
         snapshot.forEach(doc => {
           const name = doc.id;
           const option = document.createElement("option");
@@ -421,7 +461,14 @@
 
           const li = document.createElement("li");
           li.textContent = name;
-          if (data.role === "manager") {
+
+          if (famData?.manager === user.email) {
+            const removeBtn = document.createElement("button");
+            removeBtn.textContent = "Remove";
+            removeBtn.onclick = () => peopleRef.doc(name).delete();
+            li.appendChild(removeBtn);
+          }
+          if (famData?.manager === user.email) {
             const removeBtn = document.createElement("button");
             removeBtn.textContent = "Remove";
             removeBtn.onclick = () => peopleRef.doc(name).delete();
@@ -443,7 +490,7 @@
       const requestsList = document.getElementById("requests-list");
       const familyDoc = await db.collection("families").doc(currentFamily).get();
       const familyData = familyDoc.data();
-      if (data.role === "manager" && familyData?.requests) {
+      if (familyData?.manager === user.email && familyData?.requests) {
         requestsList.innerHTML = "";
         for (const email of familyData.requests) {
           const li = document.createElement("li");
