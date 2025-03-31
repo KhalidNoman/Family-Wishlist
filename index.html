@@ -7,7 +7,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-  <script defer src="/scripts.js"></script>
   <style>
     :root {
       --bg: #f7f9fc;
@@ -252,9 +251,7 @@
       if (user) {
         // Removed duplicate userRef and userSnap declarations
 
-        if (!userSnap.exists) {
-          await userRef.set({ role: "none", family: null });
-        }
+        
 
         const userDoc = await db.collection("users").doc(user.email).get();
         const data = userDoc.data();
@@ -264,8 +261,8 @@
         } else {
           accessRequestSection.style.display = "none";
         }
-        let userRef = db.collection("users").doc(user.email);
-        let userSnap = await userRef.get();
+        const userRef = db.collection("users").doc(user.email);
+        const userSnap = await userRef.get();
         
 
         requestAccessBtn.onclick = async () => {
