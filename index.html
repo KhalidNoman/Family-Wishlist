@@ -252,7 +252,19 @@
 
     // Main auth logic
     auth.onAuthStateChanged(async user => {
-      if (!user) return;
+      if (!user) {
+        loginBtn.style.display = "inline-block";
+        logoutBtn.style.display = "none";
+        userInfo.textContent = "Not logged in";
+        wishlistForm.style.display = "none";
+        wishlistContent.style.display = "none";
+        managerTab.style.display = "none";
+        jumpSelect.style.display = "none";
+        accessRequestSection.style.display = "none";
+        userSection.classList.remove("active");
+        managerSection.classList.remove("active");
+        return;
+      }
       loginBtn.style.display = "none";
       logoutBtn.style.display = "inline-block";
       userInfo.textContent = `Logged in as: ${user.email}`;
@@ -265,6 +277,7 @@
       // Setup family switcher early so it's always visible
       const familyDocs = await db.collection("families").get();
       jumpSelect.style.display = "inline-block";
+      accessRequestSection.style.display = "block";
       jumpSelect.innerHTML = '<option disabled selected>Switch or Request Family</option>';
       const newOpt = document.createElement("option");
       newOpt.value = "__create_new_family__";
@@ -335,7 +348,6 @@
 
       jumpSelect.style.display = "inline-block";
       if (!currentFamily) {
-        accessRequestSection.style.display = "block";
         const familyList = await db.collection("families").get();
         familySelect.innerHTML = '<option value="" disabled selected>Select Family</option>';
         familyList.forEach(doc => {
@@ -367,7 +379,7 @@
           location.reload();
         };
         return;
-      } // closing bracket for if (!currentFamily)
+      }
 
       // Show wishlist section
       userSection.classList.add("active");
@@ -463,7 +475,6 @@
 
           const li = document.createElement("li");
           li.textContent = name;
-
           if (famData?.manager === user.email) {
             const removeBtn = document.createElement("button");
             removeBtn.textContent = "Remove";
