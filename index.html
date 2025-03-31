@@ -272,6 +272,10 @@
       const userDocRef = db.collection("users").doc(user.email);
       let userDocSnap = await userDocRef.get();
       let data = userDocSnap.data();
+      if (!data) {
+        await userDocRef.set({ family: null, families: [] });
+        data = { family: null, families: [] };
+      }
       if (!Array.isArray(data?.families)) data.families = [];
 
       // Setup family switcher early so it's always visible
