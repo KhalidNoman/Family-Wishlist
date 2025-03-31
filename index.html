@@ -274,15 +274,26 @@
         option.textContent = name;
         familySelect.appendChild(option);
       });
-
+      let userRef = db.collection("users").doc(user.email);
+      let userSnap = await userRef.get();
       if (user) {
+        userRef = db.collection("users").doc(user.email);
+        userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+          await userRef.set({ role: "none", family: null });
+        }
+
+        const userDoc = await db.collection("users").doc(user.email).get();
+        const data = userDoc.data();
+
         if (!data.family) {
           accessRequestSection.style.display = "block";
         } else {
           accessRequestSection.style.display = "none";
         }
-        let userRef = db.collection("users").doc(user.email);
-        let userSnap = await userRef.get();
+        userRef = db.collection("users").doc(user.email);
+        userSnap = await userRef.get();
         
 
         requestAccessBtn.onclick = async () => {
