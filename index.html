@@ -75,7 +75,7 @@
     .section.active {
       display: block;
     }
-    input, select, textarea, button {
+    input, select, textarea, button, text {
       display: block;
       width: 100%;
       margin-bottom: 1rem;
@@ -245,14 +245,12 @@
         option.textContent = name;
         familySelect.appendChild(option);
       });
-      const userRef = db.collection("users").doc(user.email);
-      const userSnap = await userRef.get();
+
       if (user) {
         accessRequestSection.style.display = "block";
-
-        if (!userSnap.exists) {
-          await userRef.set({ role: "none", family: null });
-        }
+        let userRef = db.collection("users").doc(user.email);
+        let userSnap = await userRef.get();
+        
 
         requestAccessBtn.onclick = async () => {
           const selectedFamily = familySelect.value;
@@ -275,22 +273,13 @@
           }
           location.reload();
         };
-
+        // Duplicate userRef and userSnap removed
 
         if (!userSnap.exists) {
           await userRef.set({ role: "none", family: null });
         }
 
-        const requestFamily = prompt("Enter the name of your family to request access:");
-        if (requestFamily && existingFamilies.includes(requestFamily)) {
-          const familyRef = db.collection("families").doc(requestFamily);
-          await familyRef.update({
-            requests: firebase.firestore.FieldValue.arrayUnion(user.email)
-          });
-          alert("Access request sent to family manager.");
-        } else if (requestFamily) {
-          alert("Family not found.");
-        }
+        
       }
 
       // continue with existing user logic below
