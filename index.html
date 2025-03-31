@@ -7,7 +7,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-  <script defer src="/scripts.js"></script>
   <style>
     :root {
       --bg: #f7f9fc;
@@ -126,7 +125,8 @@
     <div class="nav-row">
       <div class="nav-controls">
         <button id="tab-user" class="active">Wishlist</button>
-        <button id="tab-manager" style="display: none">Manage</button>
+        <button id="tab-manager" style="display:none">Manage</button>
+        <select id="family-jump" style="display:none"></select>
         <button id="toggle-darkmode">Dark Mode</button>
       </div>
       <div class="auth-controls">
@@ -146,7 +146,6 @@
       <label for="new-family">Or Enter a New Family Name</label>
       <input type="text" id="new-family" placeholder="Enter family name">
       <button id="request-access-btn">Request Access</button>
-      <button id="switch-family-btn">Switch Family</button>
     </div>
     <div id="user-section" class="section active">
       <h2>Family Wishlist</h2>
@@ -166,7 +165,7 @@
       <div id="wishlist-content" style="display: none;">
         <h3>Wishlist Items</h3>
         <input type="text" id="search" placeholder="Search wishlist...">
-        <ul id="wishlist"></ul>
+        <ul id="wishlist"><li><em>No wishlist items yet</em></li></ul>
       </div>
     </div>
     <div id="manager-section" class="section">
@@ -175,51 +174,16 @@
         <h3>Manage People</h3>
         <input type="text" id="new-person" placeholder="Enter new person name">
         <button id="add-person-btn">Add Person</button>
-        <ul id="people-list"></ul>
+        <ul id="people-list"><li><em>No people added yet</em></li></ul>
       </div>
       <div id="approve-requests">
         <h3>Approve Access Requests</h3>
         <ul id="requests-list"></ul>
-        <script>
-          async function loadAccessRequests(managerEmail, familyName) {
-            const requestsList = document.getElementById("requests-list");
-            requestsList.innerHTML = "";
-            const familyDoc = await db.collection("families").doc(familyName).get();
-            const familyData = familyDoc.data();
-            if (!familyData?.requests) return;
-            for (const email of familyData.requests) {
-              const li = document.createElement("li");
-              li.textContent = email;
-              const approveBtn = document.createElement("button");
-              approveBtn.textContent = "Approve";
-              approveBtn.onclick = async () => {
-                const userDocRef = db.collection("users").doc(email);
-                const userSnapshot = await userDocRef.get();
-                const userData = userSnapshot.data();
-                const updatedFamilies = userData?.families || [];
-                if (!updatedFamilies.includes(familyName)) {
-                  updatedFamilies.push(familyName);
-                }
-                await db.collection("families").doc(familyName).update({
-                  requests: firebase.firestore.FieldValue.arrayRemove(email),
-                  members: firebase.firestore.FieldValue.arrayUnion(email)
-                });
-                await userDocRef.update({
-                  role: "member",
-                  family: familyName,
-                  families: updatedFamilies
-                });
-                li.remove();
-              };
-              li.appendChild(approveBtn);
-              requestsList.appendChild(li);
-            }
-          }
-        </script>
       </div>
     </div>
   </div>
   <script>
+    // Firebase config and initialization
     const firebaseConfig = {
       apiKey: "AIzaSyCBBJpJc9hL_w8dXc9VIqeKzVdUzKzkAuU",
       authDomain: "familywishlist-3962c.firebaseapp.com",
@@ -232,7 +196,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let currentFamily = null;
+    // All DOM elements declared at the top for clarity
     const userTab = document.getElementById("tab-user");
     const managerTab = document.getElementById("tab-manager");
     const userSection = document.getElementById("user-section");
@@ -242,13 +206,27 @@
     const userInfo = document.getElementById("user-info");
     const wishlistForm = document.getElementById("wishlist-form");
     const wishlistContent = document.getElementById("wishlist-content");
+    const jumpSelect = document.getElementById("family-jump");
+    const familySelect = document.getElementById("family-select");
+    const newFamilyInput = document.getElementById("new-family");
+    const requestAccessBtn = document.getElementById("request-access-btn");
+    const accessRequestSection = document.getElementById("access-request-section");
+    const personSelect = document.getElementById("person");
+    const peopleList = document.getElementById("people-list");
+    const managePeopleSection = document.getElementById("manage-people");
+    const newPersonInput = document.getElementById("new-person");
+    const addPersonBtn = document.getElementById("add-person-btn");
+    const searchInput = document.getElementById("search");
+    const wishlistList = document.getElementById("wishlist");
 
+    // Theme toggle
     if (localStorage.getItem("darkmode") === "true") document.body.classList.add("dark");
     document.getElementById("toggle-darkmode").onclick = () => {
       document.body.classList.toggle("dark");
       localStorage.setItem("darkmode", document.body.classList.contains("dark"));
     };
 
+    // Tab switching
     userTab.onclick = () => {
       userTab.classList.add("active");
       managerTab.classList.remove("active");
@@ -261,6 +239,8 @@
       managerSection.classList.add("active");
       userSection.classList.remove("active");
     };
+
+    // Auth handlers
     loginBtn.onclick = () => {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider);
@@ -269,241 +249,213 @@
       auth.signOut();
     };
 
+    // Main auth logic
     auth.onAuthStateChanged(async user => {
-      const familySelect = document.getElementById("family-select");
-      const newFamilyInput = document.getElementById("new-family");
-      const requestAccessBtn = document.getElementById("request-access-btn");
-      const accessRequestSection = document.getElementById("access-request-section");
+      if (!user) return;
+      loginBtn.style.display = "none";
+      logoutBtn.style.display = "inline-block";
+      userInfo.textContent = `Logged in as: ${user.email}`;
 
-      const familyList = await db.collection("families").get();
-      const existingFamilies = familyList.docs.map(doc => doc.id);
-      familySelect.innerHTML = '<option value="" disabled selected>Select Family</option>';
-      existingFamilies.forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        familySelect.appendChild(option);
-      });
+      const userDocRef = db.collection("users").doc(user.email);
+      let userDocSnap = await userDocRef.get();
+      let data = userDocSnap.data();
 
-      if (user) {
-        // Removed duplicate userRef and userSnap declarations
+      // If user not initialized
+      if (!data) {
+        await userDocRef.set({ role: "none", family: null, families: [] });
+        data = { role: "none", family: null, families: [] };
+      }
 
-        
+      // Setup family switching
+      if (data.families && data.families.length > 0) {
+        jumpSelect.style.display = "inline-block";
+        jumpSelect.innerHTML = '<option disabled selected>Switch Family</option>';
+        data.families.forEach(fam => {
+          const opt = document.createElement("option");
+          opt.value = fam;
+          opt.textContent = fam;
+          jumpSelect.appendChild(opt);
+        });
+        jumpSelect.onchange = async () => {
+          await userDocRef.update({ family: jumpSelect.value });
+          location.reload();
+        };
+      }
 
-        const userDoc = await db.collection("users").doc(user.email).get();
-        const data = userDoc.data();
-        currentFamily = data?.family || null;
-
-        if (!data.family) {
-          accessRequestSection.style.display = "block";
-        } else {
-          accessRequestSection.style.display = "none";
-        }
-
-        if (!data.family) {
-          accessRequestSection.style.display = "block";
-        } else {
-          accessRequestSection.style.display = "none";
-        }
-        const userRef = db.collection("users").doc(user.email);
-        const userSnap = await userRef.get();
-        
+      const currentFamily = data.family;
+      if (!currentFamily) {
+        accessRequestSection.style.display = "block";
+        const familyList = await db.collection("families").get();
+        familySelect.innerHTML = '<option value="" disabled selected>Select Family</option>';
+        familyList.forEach(doc => {
+          const opt = document.createElement("option");
+          opt.value = doc.id;
+          opt.textContent = doc.id;
+          familySelect.appendChild(opt);
+        });
 
         requestAccessBtn.onclick = async () => {
-          const selectedFamily = familySelect.value;
-          const newFamily = newFamilyInput.value.trim();
-          const familyName = newFamily || selectedFamily;
-          if (!familyName) return alert("Please select or enter a family name.");
+          const selected = familySelect.value;
+          const custom = newFamilyInput.value.trim();
+          const fam = custom || selected;
+          if (!fam) return alert("Please select or enter a family name");
 
-          const familyRef = db.collection("families").doc(familyName);
-          const familyDoc = await familyRef.get();
+          const famRef = db.collection("families").doc(fam);
+          const famSnap = await famRef.get();
 
-          if (!familyDoc.exists) {
-            await familyRef.set({ manager: user.email, requests: [], members: [user.email] });
-            await db.collection("users").doc(user.email).set({ role: "manager", family: familyName });
-            alert("New family created and you are the manager.");
+          if (!famSnap.exists) {
+            await famRef.set({ manager: user.email, members: [user.email], requests: [] });
+            await userDocRef.set({ role: "manager", family: fam, families: [fam] });
+            alert("Family created and set.");
           } else {
-            await familyRef.update({
+            await famRef.update({
               requests: firebase.firestore.FieldValue.arrayUnion(user.email)
             });
-            alert("Access request sent to family manager.");
+            alert("Request sent to family manager.");
           }
           location.reload();
         };
-
-        document.getElementById("switch-family-btn").onclick = async () => {
-          if (!confirm("Are you sure you want to leave your current family and join another?")) return;
-          await db.collection("users").doc(user.email).update({ family: null, role: "none" });
-          alert("You can now request access to another family.");
-          location.reload();
-        };
-        // Duplicate userRef and userSnap removed
-
-        if (!userSnap.exists) {
-          await userRef.set({ role: "none", family: null });
-        }
-
-        
+        return;
+      } else {
+        accessRequestSection.style.display = "none";
       }
 
-      // continue with existing user logic below
-      const personSelect = document.getElementById("person");
-      const peopleList = document.getElementById("people-list");
-      const managePeopleSection = document.getElementById("manage-people");
-      const newPersonInput = document.getElementById("new-person");
-      const addPersonBtn = document.getElementById("add-person-btn");
-      const searchInput = document.getElementById("search");
-      const wishlistList = document.getElementById("wishlist");
+      // Form submission handler
+      wishlistForm.addEventListener("submit", async e => {
+        e.preventDefault();
+        const person = personSelect.value;
+        const item = document.getElementById("item").value;
+        const description = document.getElementById("description").value;
+        const link = document.getElementById("link").value;
+        const tag = document.getElementById("tag").value;
+        if (!currentFamily) return;
+        await db.collection("families").doc(currentFamily).collection("wishlist").add({
+          person,
+          item,
+          description,
+          link,
+          tag,
+          addedBy: user.email,
+          timestamp: Date.now(),
+          claimedBy: null
+        });
+        wishlistForm.reset();
+        personSelect.selectedIndex = 0;
+      });
 
-      if (user) {
-        loginBtn.style.display = "none";
-        logoutBtn.style.display = "inline-block";
-        userInfo.textContent = `Logged in as: ${user.email}`;
-        userSection.classList.add("active");
-        wishlistForm.style.display = "block";
-        wishlistContent.style.display = "block";
-
-        const userDoc = await db.collection("users").doc(user.email).get();
-        const data = userDoc.data();
-        currentFamily = data?.family || null;
-
-        if (data?.role === "manager") {
-          managerTab.style.display = "inline-block";
-          managePeopleSection.style.display = "block";
-          loadAccessRequests(user.email, currentFamily);
-        } else {
-          managerTab.style.display = "none";
-          managePeopleSection.style.display = "none";
-          if (managerTab.classList.contains("active")) userTab.click();
-        }
-
-        if (currentFamily) {
-          const peopleRef = db.collection("families").doc(currentFamily).collection("people");
-          const snapshot = await peopleRef.get();
-          personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
-          peopleList.innerHTML = '<li><em>No people added yet</em></li>';
+      // Real-time wishlist listener
+      db.collection("families").doc(currentFamily).collection("wishlist")
+        .orderBy("timestamp", "desc")
+        .onSnapshot(snapshot => {
+          wishlistList.innerHTML = "";
+          if (snapshot.empty) {
+            wishlistList.innerHTML = '<li><em>No wishlist items yet</em></li>';
+            return;
+          }
           snapshot.forEach(doc => {
-            const name = doc.id;
-            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
+            const data = doc.data();
             const li = document.createElement("li");
-            li.textContent = name;
-            if (data.role === "manager") {
-              const removeBtn = document.createElement("button");
-              removeBtn.textContent = "Remove";
-              removeBtn.onclick = async () => {
-                await peopleRef.doc(name).delete();
-                li.remove();
-              };
-              li.appendChild(removeBtn);
+            li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
+              (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
+              (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
+              `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
+
+            if (!data.claimedBy) {
+              const claimBtn = document.createElement("button");
+              claimBtn.textContent = "Claim";
+              claimBtn.onclick = () => doc.ref.update({ claimedBy: user.email });
+              li.appendChild(claimBtn);
+            } else {
+              li.innerHTML += `<div><small>Claimed by ${data.claimedBy}</small></div>`;
+              if (data.claimedBy === user.email) {
+                const unclaimBtn = document.createElement("button");
+                unclaimBtn.textContent = "Unclaim";
+                unclaimBtn.onclick = () => doc.ref.update({ claimedBy: null });
+                li.appendChild(unclaimBtn);
+
+                const tagInput = document.createElement("input");
+                tagInput.placeholder = "Update tag";
+                tagInput.value = data.tag || "";
+                const saveBtn = document.createElement("button");
+                saveBtn.textContent = "Update Tag";
+                saveBtn.onclick = () => doc.ref.update({ tag: tagInput.value });
+                li.appendChild(tagInput);
+                li.appendChild(saveBtn);
+              }
             }
-            peopleList.appendChild(li);
+            wishlistList.appendChild(li);
           });
-
-          addPersonBtn.onclick = async () => {
-            const name = newPersonInput.value.trim();
-            if (!name) return;
-            await peopleRef.doc(name).set({ exists: true });
-            newPersonInput.value = "";
-            personSelect.innerHTML += `<option value="${name}">${name}</option>`;
-            const li = document.createElement("li");
-            li.textContent = name;
-            const removeBtn = document.createElement("button");
-            removeBtn.textContent = "Remove";
-            removeBtn.onclick = async () => {
-              await peopleRef.doc(name).delete();
-              li.remove();
-            };
-            li.appendChild(removeBtn);
-            peopleList.appendChild(li);
-          };
-
-          db.collection("families").doc(currentFamily).collection("wishlist")
-            .orderBy("timestamp", "desc")
-            .onSnapshot(snapshot => {
-              wishlistList.innerHTML = '<li><em>No wishlist items yet</em></li>';
-              snapshot.forEach(doc => {
-              const data = doc.data();
-              const li = document.createElement("li");
-              const isClaimed = data.claimedBy !== null;
-              li.innerHTML = `<strong>${data.person}:</strong> ${data.item}<br>${data.description || ""}<br>` +
-                  (data.link ? `<a href="${data.link}" target="_blank">View Item</a><br>` : "") +
-                  (data.tag ? `<em>Tag: ${data.tag}</em><br>` : "") +
-                  `<small>Added by ${data.addedBy} on ${new Date(data.timestamp).toLocaleString()}</small>`;
-
-                if (!isClaimed) {
-                  const claimBtn = document.createElement("button");
-                  claimBtn.textContent = "Claim";
-                  claimBtn.onclick = () => {
-                    doc.ref.update({ claimedBy: user.email });
-                  };
-                  li.appendChild(claimBtn);
-                } else {
-                  li.innerHTML += `<br><small>Claimed by ${data.claimedBy}</small>`;
-                  if (data.claimedBy === user.email) {
-                    const unclaimBtn = document.createElement("button");
-                    unclaimBtn.textContent = "Unclaim";
-                    unclaimBtn.onclick = () => {
-                      doc.ref.update({ claimedBy: null });
-                    };
-                    li.appendChild(unclaimBtn);
-
-                    const tagInput = document.createElement("input");
-                    tagInput.type = "text";
-                    tagInput.placeholder = "Update tag";
-                    tagInput.value = data.tag || "";
-
-                    const saveBtn = document.createElement("button");
-                    saveBtn.textContent = "Update Tag";
-                    saveBtn.onclick = () => {
-                      doc.ref.update({ tag: tagInput.value });
-                    };
-
-                    li.appendChild(tagInput);
-                    li.appendChild(saveBtn);
-                  }
-                }
-                wishlistList.appendChild(li);
-              });
-            });
-        }
-
-        wishlistForm.addEventListener("submit", async e => {
-          e.preventDefault();
-          const person = document.getElementById("person").value;
-          const item = document.getElementById("item").value;
-          const description = document.getElementById("description").value;
-          const link = document.getElementById("link").value;
-          const tag = document.getElementById("tag").value;
-          if (!currentFamily) return;
-          await db.collection("families").doc(currentFamily).collection("wishlist").add({
-            person,
-            item,
-            description,
-            link,
-            tag,
-            addedBy: user.email,
-            timestamp: Date.now(),
-            claimedBy: null
-          });
-          wishlistForm.reset();
-          personSelect.selectedIndex = 0;
         });
 
-      } else {
-        userInfo.textContent = "Not logged in";
-        loginBtn.style.display = "inline-block";
-        logoutBtn.style.display = "none";
-        userTab.classList.add("active");
-        managerTab.classList.remove("active");
-        userSection.classList.remove("active");
-        managerSection.classList.remove("active");
-        wishlistForm.style.display = "none";
-        wishlistContent.style.display = "none";
-        managerTab.style.display = "none";
-        managePeopleSection.style.display = "none";
+      // Load and render people
+      const peopleRef = db.collection("families").doc(currentFamily).collection("people");
+      peopleRef.onSnapshot(snapshot => {
         personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
         peopleList.innerHTML = "";
-        wishlistList.innerHTML = "";
+        if (snapshot.empty) {
+          peopleList.innerHTML = '<li><em>No people added yet</em></li>';
+          return;
+        }
+        snapshot.forEach(doc => {
+          const name = doc.id;
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          personSelect.appendChild(option);
+
+          const li = document.createElement("li");
+          li.textContent = name;
+          if (data.role === "manager") {
+            const removeBtn = document.createElement("button");
+            removeBtn.textContent = "Remove";
+            removeBtn.onclick = () => peopleRef.doc(name).delete();
+            li.appendChild(removeBtn);
+          }
+          peopleList.appendChild(li);
+        });
+      });
+
+      // Add person button
+      addPersonBtn.onclick = async () => {
+        const name = newPersonInput.value.trim();
+        if (!name) return;
+        await peopleRef.doc(name).set({ exists: true });
+        newPersonInput.value = "";
+      };
+
+      // Load access requests
+      const requestsList = document.getElementById("requests-list");
+      const familyDoc = await db.collection("families").doc(currentFamily).get();
+      const familyData = familyDoc.data();
+      if (data.role === "manager" && familyData?.requests) {
+        requestsList.innerHTML = "";
+        for (const email of familyData.requests) {
+          const li = document.createElement("li");
+          li.textContent = email;
+          const approveBtn = document.createElement("button");
+          approveBtn.textContent = "Approve";
+          approveBtn.onclick = async () => {
+            const userDoc = db.collection("users").doc(email);
+            const userSnap = await userDoc.get();
+            const userData = userSnap.data();
+            const updatedFamilies = userData?.families || [];
+            if (!updatedFamilies.includes(currentFamily)) updatedFamilies.push(currentFamily);
+            await userDoc.update({ role: "member", family: currentFamily, families: updatedFamilies });
+            await db.collection("families").doc(currentFamily).update({
+              requests: firebase.firestore.FieldValue.arrayRemove(email),
+              members: firebase.firestore.FieldValue.arrayUnion(email)
+            });
+            li.remove();
+          };
+          li.appendChild(approveBtn);
+          requestsList.appendChild(li);
+        }
+      }
+
+      // Manager visibility and load
+      if (data.role === "manager") {
+        managerTab.style.display = "inline-block";
+        managePeopleSection.style.display = "block";
       }
     });
   </script>
