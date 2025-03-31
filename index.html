@@ -75,7 +75,7 @@
     .section.active {
       display: block;
     }
-    input, select, textarea, button, text {
+    input, select, textarea, button {
       display: block;
       width: 100%;
       margin-bottom: 1rem;
@@ -85,6 +85,7 @@
       border-radius: 8px;
       background: var(--card);
       color: var(--text);
+      box-sizing: border-box;
     }
     button {
       background: #4CAF50;
@@ -177,6 +178,34 @@
       <div id="approve-requests">
         <h3>Approve Access Requests</h3>
         <ul id="requests-list"></ul>
+        <script>
+          async function loadAccessRequests(managerEmail, familyName) {
+            const requestsList = document.getElementById("requests-list");
+            requestsList.innerHTML = "";
+            const familyDoc = await db.collection("families").doc(familyName).get();
+            const familyData = familyDoc.data();
+            if (!familyData?.requests) return;
+            for (const email of familyData.requests) {
+              const li = document.createElement("li");
+              li.textContent = email;
+              const approveBtn = document.createElement("button");
+              approveBtn.textContent = "Approve";
+              approveBtn.onclick = async () => {
+                await db.collection("families").doc(familyName).update({
+                  requests: firebase.firestore.FieldValue.arrayRemove(email),
+                  members: firebase.firestore.FieldValue.arrayUnion(email)
+                });
+                await db.collection("users").doc(email).update({
+                  role: "member",
+                  family: familyName
+                });
+                li.remove();
+              };
+              li.appendChild(approveBtn);
+              requestsList.appendChild(li);
+            }
+          }
+        </script>
       </div>
     </div>
   </div>
@@ -247,7 +276,11 @@
       });
 
       if (user) {
-        accessRequestSection.style.display = "block";
+        if (!data.family) {
+          accessRequestSection.style.display = "block";
+        } else {
+          accessRequestSection.style.display = "none";
+        }
         let userRef = db.collection("users").doc(user.email);
         let userSnap = await userRef.get();
         
@@ -306,6 +339,7 @@
         if (data?.role === "manager") {
           managerTab.style.display = "inline-block";
           managePeopleSection.style.display = "block";
+          loadAccessRequests(user.email, currentFamily);
         } else {
           managerTab.style.display = "none";
           managePeopleSection.style.display = "none";
