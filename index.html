@@ -7,6 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  <script defer src="/scripts.js"></script>
   <style>
     :root {
       --bg: #f7f9fc;
@@ -178,34 +179,7 @@
       <div id="approve-requests">
         <h3>Approve Access Requests</h3>
         <ul id="requests-list"></ul>
-        <script>
-          async function loadAccessRequests(managerEmail, familyName) {
-            const requestsList = document.getElementById("requests-list");
-            requestsList.innerHTML = "";
-            const familyDoc = await db.collection("families").doc(familyName).get();
-            const familyData = familyDoc.data();
-            if (!familyData?.requests) return;
-            for (const email of familyData.requests) {
-              const li = document.createElement("li");
-              li.textContent = email;
-              const approveBtn = document.createElement("button");
-              approveBtn.textContent = "Approve";
-              approveBtn.onclick = async () => {
-                await db.collection("families").doc(familyName).update({
-                  requests: firebase.firestore.FieldValue.arrayRemove(email),
-                  members: firebase.firestore.FieldValue.arrayUnion(email)
-                });
-                await db.collection("users").doc(email).update({
-                  role: "member",
-                  family: familyName
-                });
-                li.remove();
-              };
-              li.appendChild(approveBtn);
-              requestsList.appendChild(li);
-            }
-          }
-        </script>
+        
       </div>
     </div>
   </div>
@@ -274,8 +248,7 @@
         option.textContent = name;
         familySelect.appendChild(option);
       });
-      let userRef = db.collection("users").doc(user.email);
-      let userSnap = await userRef.get();
+
       if (user) {
         // Removed duplicate userRef and userSnap declarations
 
@@ -291,7 +264,8 @@
         } else {
           accessRequestSection.style.display = "none";
         }
-
+        let userRef = db.collection("users").doc(user.email);
+        let userSnap = await userRef.get();
         
 
         requestAccessBtn.onclick = async () => {
