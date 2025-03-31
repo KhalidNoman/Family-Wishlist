@@ -226,12 +226,6 @@
       localStorage.setItem("darkmode", document.body.classList.contains("dark"));
     };
 
-      // Manager visibility and load
-      if (data.role === "manager") {
-        managerTab.style.display = "inline-block";
-        managePeopleSection.style.display = "block";
-        managerTab.click();
-      }
     // Tab switching
     userTab.onclick = () => {
       userTab.classList.add("active");
@@ -274,7 +268,7 @@
 
       // Setup family switching
       const familyDocs = await db.collection("families").get();
-      jumpSelect.style.display = "inline-block";
+      if (familyDocs.size > 0) jumpSelect.style.display = "inline-block";
       jumpSelect.innerHTML = '<option disabled selected>Switch or Request Family</option>';
       familyDocs.forEach(doc => {
         const fam = doc.id;
@@ -300,7 +294,8 @@
         location.reload();
       };
 
-      const currentFamily = data.family;
+      const currentFamily = data.family || null;
+      if (!Array.isArray(data.families)) data.families = [];
       if (!currentFamily) {
         accessRequestSection.style.display = "block";
         const familyList = await db.collection("families").get();
@@ -421,54 +416,14 @@
 
           const li = document.createElement("li");
           li.textContent = name;
-          if (data.role === "manager") {
-            const removeBtn = document.createElement("button");
-            removeBtn.textContent = "Remove";
-            removeBtn.onclick = () => peopleRef.doc(name).delete();
-            li.appendChild(removeBtn);
+
+          if (data.family === currentFamily && data.role === "manager") {
+            managerTab.style.display = "inline-block";
+            managePeopleSection.style.display = "block";
           }
+
           peopleList.appendChild(li);
         });
-      });
-
-      // Add person button
-      addPersonBtn.onclick = async () => {
-        const name = newPersonInput.value.trim();
-        if (!name) return;
-        await peopleRef.doc(name).set({ exists: true });
-        newPersonInput.value = "";
-      };
-
-      // Load access requests
-      const requestsList = document.getElementById("requests-list");
-      const familyDoc = await db.collection("families").doc(currentFamily).get();
-      const familyData = familyDoc.data();
-      if (data.role === "manager" && familyData?.requests) {
-        requestsList.innerHTML = "";
-        for (const email of familyData.requests) {
-          const li = document.createElement("li");
-          li.textContent = email;
-          const approveBtn = document.createElement("button");
-          approveBtn.textContent = "Approve";
-          approveBtn.onclick = async () => {
-            const userDoc = db.collection("users").doc(email);
-            const userSnap = await userDoc.get();
-            const userData = userSnap.data();
-            const updatedFamilies = userData?.families || [];
-            if (!updatedFamilies.includes(currentFamily)) updatedFamilies.push(currentFamily);
-            await userDoc.update({ role: "member", family: currentFamily, families: updatedFamilies });
-            await db.collection("families").doc(currentFamily).update({
-              requests: firebase.firestore.FieldValue.arrayRemove(email),
-              members: firebase.firestore.FieldValue.arrayUnion(email)
-            });
-            li.remove();
-          };
-          li.appendChild(approveBtn);
-          requestsList.appendChild(li);
-        }
-      }
-
-    });
   </script>
 </body>
 </html>
