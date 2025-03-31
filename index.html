@@ -7,6 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  <script defer src="/scripts.js"></script>
   <style>
     :root {
       --bg: #f7f9fc;
@@ -145,6 +146,7 @@
       <label for="new-family">Or Enter a New Family Name</label>
       <input type="text" id="new-family" placeholder="Enter family name">
       <button id="request-access-btn">Request Access</button>
+      <button id="switch-family-btn">Switch Family</button>
     </div>
     <div id="user-section" class="section active">
       <h2>Family Wishlist</h2>
@@ -152,13 +154,13 @@
         <label for="person">Person</label>
         <select id="person" required><option value="" disabled selected>Select Person</option></select>
         <label for="item">Item Name</label>
-        <input type="text" id="item" required>
+        <input type="text" id="item" placeholder="Enter item name" required>
         <label for="description">Description</label>
-        <textarea id="description"></textarea>
+        <textarea id="description" placeholder="Enter item description (optional)"></textarea>
         <label for="link">Link (optional)</label>
-        <input type="url" id="link">
+        <input type="url" id="link" placeholder="Enter item link (optional)">
         <label for="tag">Tag</label>
-        <input type="text" id="tag">
+        <input type="text" id="tag" placeholder="Enter tag (e.g., Purchased)">
         <button type="submit">Add to Wishlist</button>
       </form>
       <div id="wishlist-content" style="display: none;">
@@ -171,14 +173,49 @@
       <h2>Manager Panel</h2>
       <div id="manage-people">
         <h3>Manage People</h3>
-        <input type="text" id="new-person" placeholder="Add person name">
+        <input type="text" id="new-person" placeholder="Enter new person name">
         <button id="add-person-btn">Add Person</button>
         <ul id="people-list"></ul>
       </div>
       <div id="approve-requests">
         <h3>Approve Access Requests</h3>
         <ul id="requests-list"></ul>
-        
+        <script>
+          async function loadAccessRequests(managerEmail, familyName) {
+            const requestsList = document.getElementById("requests-list");
+            requestsList.innerHTML = "";
+            const familyDoc = await db.collection("families").doc(familyName).get();
+            const familyData = familyDoc.data();
+            if (!familyData?.requests) return;
+            for (const email of familyData.requests) {
+              const li = document.createElement("li");
+              li.textContent = email;
+              const approveBtn = document.createElement("button");
+              approveBtn.textContent = "Approve";
+              approveBtn.onclick = async () => {
+                const userDocRef = db.collection("users").doc(email);
+                const userSnapshot = await userDocRef.get();
+                const userData = userSnapshot.data();
+                const updatedFamilies = userData?.families || [];
+                if (!updatedFamilies.includes(familyName)) {
+                  updatedFamilies.push(familyName);
+                }
+                await db.collection("families").doc(familyName).update({
+                  requests: firebase.firestore.FieldValue.arrayRemove(email),
+                  members: firebase.firestore.FieldValue.arrayUnion(email)
+                });
+                await userDocRef.update({
+                  role: "member",
+                  family: familyName,
+                  families: updatedFamilies
+                });
+                li.remove();
+              };
+              li.appendChild(approveBtn);
+              requestsList.appendChild(li);
+            }
+          }
+        </script>
       </div>
     </div>
   </div>
@@ -255,6 +292,13 @@
 
         const userDoc = await db.collection("users").doc(user.email).get();
         const data = userDoc.data();
+        currentFamily = data?.family || null;
+
+        if (!data.family) {
+          accessRequestSection.style.display = "block";
+        } else {
+          accessRequestSection.style.display = "none";
+        }
 
         if (!data.family) {
           accessRequestSection.style.display = "block";
@@ -284,6 +328,13 @@
             });
             alert("Access request sent to family manager.");
           }
+          location.reload();
+        };
+
+        document.getElementById("switch-family-btn").onclick = async () => {
+          if (!confirm("Are you sure you want to leave your current family and join another?")) return;
+          await db.collection("users").doc(user.email).update({ family: null, role: "none" });
+          alert("You can now request access to another family.");
           location.reload();
         };
         // Duplicate userRef and userSnap removed
@@ -330,7 +381,7 @@
           const peopleRef = db.collection("families").doc(currentFamily).collection("people");
           const snapshot = await peopleRef.get();
           personSelect.innerHTML = '<option value="" disabled selected>Select Person</option>';
-          peopleList.innerHTML = "";
+          peopleList.innerHTML = '<li><em>No people added yet</em></li>';
           snapshot.forEach(doc => {
             const name = doc.id;
             personSelect.innerHTML += `<option value="${name}">${name}</option>`;
@@ -369,7 +420,7 @@
           db.collection("families").doc(currentFamily).collection("wishlist")
             .orderBy("timestamp", "desc")
             .onSnapshot(snapshot => {
-              wishlistList.innerHTML = "";
+              wishlistList.innerHTML = '<li><em>No wishlist items yet</em></li>';
               snapshot.forEach(doc => {
               const data = doc.data();
               const li = document.createElement("li");
