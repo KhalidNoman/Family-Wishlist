@@ -485,12 +485,6 @@
             removeBtn.onclick = () => peopleRef.doc(name).delete();
             li.appendChild(removeBtn);
           }
-          if (famData?.manager === user.email) {
-            const removeBtn = document.createElement("button");
-            removeBtn.textContent = "Remove";
-            removeBtn.onclick = () => peopleRef.doc(name).delete();
-            li.appendChild(removeBtn);
-          }
           peopleList.appendChild(li);
         });
       });
